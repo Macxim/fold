@@ -1,7 +1,7 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 
-// Cache duration: 15 minutes
-const CACHE_DURATION_MS = 15 * 60 * 1000;
+// Cache duration: 6 hours
+const CACHE_DURATION_MS = 6 * 60 * 60 * 1000;
 
 export interface Asset {
   id: number;
@@ -11,7 +11,7 @@ export interface Asset {
   amount: number;
   price: number;
   coinId?: string;
-  lastFetched?: number; // Timestamp of last price fetch
+  lastFetched?: number;
 }
 
 export interface HistoryEntry {
@@ -40,6 +40,12 @@ export function usePortfolio() {
   const [assets, setAssets] = useState<Asset[]>([]);
   const [history, setHistory] = useState<HistoryEntry[]>([]);
   const [lastUpdate, setLastUpdate] = useState<string | null>(null);
+
+  // Use ref to always have access to current assets without stale closures
+  const assetsRef = useRef<Asset[]>([]);
+  assetsRef.current = assets;
+
+  const isFetchingRef = useRef(false);
 
   // Load data on mount
   useEffect(() => {
@@ -77,27 +83,27 @@ export function usePortfolio() {
     return () => window.removeEventListener('storage', handleStorageChange);
   }, []);
 
-  // Fetch prices with caching
+  // Fetch prices - runs ONCE on mount and checks cache
   useEffect(() => {
     const updatePrices = async () => {
-      if (assets.length === 0) return;
+      const currentAssets = assetsRef.current;
 
-      const today = new Date().toISOString().split('T')[0];
-      const lastHistoryDate = history.length > 0 ? history[history.length - 1].date : null;
+      if (currentAssets.length === 0) return;
+      if (isFetchingRef.current) return;
 
-      // Check if all assets have valid cache
-      const allCached = assets.every(a => isCacheValid(a.lastFetched));
-
-      if (allCached && lastHistoryDate === today) {
-        console.log('[usePortfolio] All prices cached, skipping fetch');
+      // Check if ALL assets have valid cache - if so, skip entirely
+      const allCached = currentAssets.every(a => isCacheValid(a.lastFetched));
+      if (allCached) {
+        console.log('[usePortfolio] All prices cached (6h), skipping fetch');
         return;
       }
 
-      setLastUpdate(new Date().toLocaleString());
+      isFetchingRef.current = true;
+      console.log('[usePortfolio] Starting price update...');
 
       const updatedAssets = await Promise.all(
-        assets.map(async (asset) => {
-          // Skip if cache is valid
+        currentAssets.map(async (asset) => {
+          // Skip if this specific asset has valid cache
           if (isCacheValid(asset.lastFetched)) {
             console.log(`[usePortfolio] Using cached price for ${asset.symbol}`);
             return asset;
@@ -122,6 +128,8 @@ export function usePortfolio() {
               }
             } catch (error) {
               console.error(`Failed to fetch ${asset.symbol}:`, error);
+              // Keep existing price on error
+              return asset;
             }
           } else if (asset.type === 'stock') {
             try {
@@ -133,6 +141,7 @@ export function usePortfolio() {
               price = data.chart?.result?.[0]?.meta?.regularMarketPrice || price;
             } catch (error) {
               console.error(`Failed to fetch ${asset.symbol}:`, error);
+              return asset;
             }
           }
 
@@ -141,23 +150,32 @@ export function usePortfolio() {
       );
 
       setAssets(updatedAssets);
+      setLastUpdate(new Date().toLocaleString());
 
-      const totalValue = updatedAssets.reduce((sum, asset) =>
-        sum + (asset.amount * asset.price), 0
-      );
+      // Update history if new day
+      const today = new Date().toISOString().split('T')[0];
+      const savedHistory = localStorage.getItem('fold-history-v2');
+      const currentHistory: HistoryEntry[] = savedHistory ? JSON.parse(savedHistory) : [];
+      const lastHistoryDate = currentHistory.length > 0 ? currentHistory[currentHistory.length - 1].date : null;
 
       if (lastHistoryDate !== today) {
-         setHistory(prev => [...prev, {
-            date: today,
-            value: totalValue
-         }]);
+        const totalValue = updatedAssets.reduce((sum, asset) => sum + (asset.amount * asset.price), 0);
+        setHistory(prev => [...prev, { date: today, value: totalValue }]);
       }
+
+      isFetchingRef.current = false;
+      console.log('[usePortfolio] Price update complete');
     };
 
-    updatePrices();
-    const interval = setInterval(updatePrices, 60 * 1000); // Check every minute (but respects cache)
-    return () => clearInterval(interval);
-  }, [assets.length, history]);
+    // Only run once on mount after assets are loaded
+    const timer = setTimeout(() => {
+      if (assetsRef.current.length > 0) {
+        updatePrices();
+      }
+    }, 500); // Small delay to ensure localStorage has loaded
+
+    return () => clearTimeout(timer);
+  }, [assets.length]); // Only re-run if number of assets changes
 
 
   const addAsset = useCallback(async (assetForm: { symbol: string, name: string, type: string, amount: string }): Promise<{ success: boolean, message: string }> => {
@@ -168,7 +186,6 @@ export function usePortfolio() {
     let price = 0;
     let coinId: string | undefined;
 
-    // Fetch initial price
     if (assetForm.type === 'crypto') {
       try {
         coinId = await resolveCoinId(assetForm.symbol);
@@ -201,7 +218,7 @@ export function usePortfolio() {
         return { success: false, message: 'Failed to fetch stock price' };
       }
     } else if (assetForm.type === 'bank') {
-        price = 1; // Cash is always $1 per unit
+        price = 1;
     }
 
     const newAsset: Asset = {
@@ -215,11 +232,9 @@ export function usePortfolio() {
       lastFetched: Date.now()
     };
 
-    // Update state and also manually push to localStorage for cross-component sync
     setAssets(prev => {
         const updated = [...prev, newAsset];
         localStorage.setItem('fold-assets-v2', JSON.stringify(updated));
-        // Dispatch storage event manually for same-tab sync
         window.dispatchEvent(new StorageEvent('storage', {
             key: 'fold-assets-v2',
             newValue: JSON.stringify(updated)
