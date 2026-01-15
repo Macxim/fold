@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { DashboardCard } from "./dashboard-card";
 import { Asset } from "../hooks/use-portfolio";
+import { useCurrency } from "../context/currency-context";
 
 interface AssetListProps {
   assets: Asset[];
@@ -24,46 +25,9 @@ function formatAmount(amount: number): string {
   });
 }
 
-/**
- * Formats price with appropriate decimals based on value.
- * Low-value coins (< $0.01) show up to 8 decimals for accuracy.
- */
-function formatPrice(price: number): string {
-  if (price === 0) return '$0.00';
-
-  // For very low prices (< $0.0001), show up to 8 decimals
-  if (price < 0.0001) {
-    return '$' + price.toLocaleString(undefined, {
-      minimumFractionDigits: 8,
-      maximumFractionDigits: 8
-    });
-  }
-
-  // For low prices (< $0.01), show up to 6 decimals
-  if (price < 0.01) {
-    return '$' + price.toLocaleString(undefined, {
-      minimumFractionDigits: 6,
-      maximumFractionDigits: 6
-    });
-  }
-
-  // For prices < $1, show up to 4 decimals
-  if (price < 1) {
-    return '$' + price.toLocaleString(undefined, {
-      minimumFractionDigits: 4,
-      maximumFractionDigits: 4
-    });
-  }
-
-  // Normal prices show 2 decimals
-  return '$' + price.toLocaleString(undefined, {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2
-  });
-}
-
 export function AssetList({ assets, onUpdateAmount, onDelete }: AssetListProps) {
   const [editingId, setEditingId] = useState<number | null>(null);
+  const { formatPrice, formatValue } = useCurrency();
 
   const handleSave = (assetId: number, value: string) => {
     if (value && !isNaN(parseFloat(value))) {
@@ -134,10 +98,7 @@ export function AssetList({ assets, onUpdateAmount, onDelete }: AssetListProps) 
                   )}
                 </td>
                 <td className="py-4 px-2 text-right font-mono font-medium text-foreground">
-                  ${(asset.amount * asset.price).toLocaleString(undefined, {
-                    minimumFractionDigits: 2,
-                    maximumFractionDigits: 2
-                  })}
+                  {formatValue(asset.amount * asset.price)}
                 </td>
               </tr>
             ))}
