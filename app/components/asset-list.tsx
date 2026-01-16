@@ -8,6 +8,7 @@ import { useCurrency } from "../context/currency-context";
 interface AssetListProps {
   assets: Asset[];
   onUpdateAmount: (id: number, amount: string) => void;
+  onUpdatePrice: (id: number, price: string) => void;
   onDelete?: (id: number) => void;
 }
 
@@ -25,13 +26,17 @@ function formatAmount(amount: number): string {
   });
 }
 
-export function AssetList({ assets, onUpdateAmount, onDelete }: AssetListProps) {
+export function AssetList({ assets, onUpdateAmount, onUpdatePrice, onDelete }: AssetListProps) {
   const [editingId, setEditingId] = useState<number | null>(null);
-  const { formatPrice, formatValue } = useCurrency();
+  const { formatPriceFromOriginal, formatValueFromOriginal } = useCurrency();
 
-  const handleSave = (assetId: number, value: string) => {
+  const handleSave = (assetId: number, value: string, isPrice: boolean) => {
     if (value && !isNaN(parseFloat(value))) {
-      onUpdateAmount(assetId, value);
+      if (isPrice) {
+        onUpdatePrice(assetId, value);
+      } else {
+        onUpdateAmount(assetId, value);
+      }
     }
     setEditingId(null);
   };
@@ -50,58 +55,88 @@ export function AssetList({ assets, onUpdateAmount, onDelete }: AssetListProps) 
             </tr>
           </thead>
           <tbody>
-            {assets.map((asset) => (
-              <tr
-                key={asset.id}
-                className="group border-b border-border/40 last:border-0 hover:bg-muted/10 transition-colors"
-              >
-                <td className="py-4 px-2">
-                  <div className="font-medium text-foreground">{asset.symbol}</div>
-                  <div className="text-xs text-muted-foreground font-light mt-0.5">
-                    {asset.name}
-                  </div>
-                </td>
-                <td className="py-4 px-2">
-                  <span className="text-[10px] uppercase tracking-wider px-2 py-0.5 border border-border rounded-sm text-muted-foreground">
-                    {asset.type}
-                  </span>
-                </td>
-                <td className="py-4 px-2 text-right font-mono text-muted-foreground">
-                  {formatPrice(asset.price)}
-                </td>
-                <td className="py-4 px-2 text-right font-mono text-foreground">
-                  {editingId === asset.id ? (
-                    <input
-                      type="number"
-                      step="0.00000001"
-                      defaultValue={asset.amount}
-                      onBlur={(e) => handleSave(asset.id, e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') {
-                          handleSave(asset.id, (e.target as HTMLInputElement).value);
-                        }
-                        if (e.key === 'Escape') {
-                          setEditingId(null);
-                        }
-                      }}
-                      autoFocus
-                      className="w-32 px-1 py-0.5 bg-background border border-accent text-right outline-none font-mono text-sm"
-                    />
-                  ) : (
-                    <span
-                      className="cursor-pointer hover:text-accent hover:underline decoration-dashed underline-offset-4"
-                      onClick={() => setEditingId(asset.id)}
-                      title="Click to edit"
-                    >
-                      {formatAmount(asset.amount)}
+            {assets.map((asset) => {
+              // Calculate total value in the asset's original currency
+              const totalValueInOriginal = asset.amount * asset.price;
+              const isBankAsset = asset.type === 'bank';
+
+              return (
+                <tr
+                  key={asset.id}
+                  className="group border-b border-border/40 last:border-0 hover:bg-muted/10 transition-colors"
+                >
+                  <td className="py-4 px-2">
+                    <div className="font-medium text-foreground">{asset.symbol}</div>
+                    <div className="text-xs text-muted-foreground font-light mt-0.5">
+                      {asset.name}
+                    </div>
+                  </td>
+                  <td className="py-4 px-2">
+                    <span className="text-[10px] uppercase tracking-wider px-2 py-0.5 border border-border rounded-sm text-muted-foreground">
+                      {asset.type}
                     </span>
-                  )}
-                </td>
-                <td className="py-4 px-2 text-right font-mono font-medium text-foreground">
-                  {formatValue(asset.amount * asset.price)}
-                </td>
-              </tr>
-            ))}
+                  </td>
+                  <td className="py-4 px-2 text-right font-mono text-muted-foreground">
+                    {editingId === asset.id && isBankAsset ? (
+                      <input
+                        type="number"
+                        step="0.01"
+                        defaultValue={asset.price}
+                        onBlur={(e) => handleSave(asset.id, e.target.value, true)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            handleSave(asset.id, (e.target as HTMLInputElement).value, true);
+                          }
+                          if (e.key === 'Escape') {
+                            setEditingId(null);
+                          }
+                        }}
+                        autoFocus
+                        className="w-32 px-1 py-0.5 bg-background border border-accent text-right outline-none font-mono text-sm"
+                      />
+                    ) : (
+                      <span
+                        className={isBankAsset ? "cursor-pointer hover:text-accent hover:underline decoration-dashed underline-offset-4" : ""}
+                        onClick={() => isBankAsset && setEditingId(asset.id)}
+                      >
+                        {formatPriceFromOriginal(asset.price, asset.originalCurrency)}
+                      </span>
+                    )}
+                  </td>
+                  <td className="py-4 px-2 text-right font-mono text-foreground">
+                    {editingId === asset.id && !isBankAsset ? (
+                      <input
+                        type="number"
+                        step="0.00000001"
+                        defaultValue={asset.amount}
+                        onBlur={(e) => handleSave(asset.id, e.target.value, false)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            handleSave(asset.id, (e.target as HTMLInputElement).value, false);
+                          }
+                          if (e.key === 'Escape') {
+                            setEditingId(null);
+                          }
+                        }}
+                        autoFocus
+                        className="w-32 px-1 py-0.5 bg-background border border-accent text-right outline-none font-mono text-sm"
+                      />
+                    ) : (
+                      <span
+                        className={!isBankAsset ? "cursor-pointer hover:text-accent hover:underline decoration-dashed underline-offset-4" : ""}
+                        onClick={() => !isBankAsset && setEditingId(asset.id)}
+                        title={!isBankAsset ? "Click to edit" : ""}
+                      >
+                        {formatAmount(asset.amount)}
+                      </span>
+                    )}
+                  </td>
+                  <td className="py-4 px-2 text-right font-mono font-medium text-foreground">
+                    {formatValueFromOriginal(totalValueInOriginal, asset.originalCurrency)}
+                  </td>
+                </tr>
+              );
+            })}
             {assets.length === 0 && (
               <tr>
                 <td colSpan={5} className="py-8 text-center text-muted-foreground text-xs uppercase tracking-widest">

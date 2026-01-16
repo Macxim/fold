@@ -12,6 +12,7 @@ export interface Asset {
   price: number;
   coinId?: string;
   lastFetched?: number;
+  originalCurrency?: 'USD' | 'EUR'; // For manually entered values (bank assets)
 }
 
 export interface HistoryEntry {
@@ -178,15 +179,38 @@ export function usePortfolio() {
   }, [assets.length]); // Only re-run if number of assets changes
 
 
-  const addAsset = useCallback(async (assetForm: { symbol: string, name: string, type: string, amount: string }): Promise<{ success: boolean, message: string }> => {
+  const addAsset = useCallback(async (assetForm: {
+    symbol: string,
+    name: string,
+    type: string,
+    amount: string,
+    manualPrice?: string,
+    priceCurrency?: 'USD' | 'EUR'
+  }): Promise<{ success: boolean, message: string }> => {
     if (!assetForm.symbol || !assetForm.amount) {
       return { success: false, message: 'Symbol and amount are required' };
     }
 
     let price = 0;
     let coinId: string | undefined;
+    let originalCurrency: 'USD' | 'EUR' | undefined;
 
-    if (assetForm.type === 'crypto') {
+    console.log(`[addAsset] Received:`, {
+      symbol: assetForm.symbol,
+      type: assetForm.type,
+      amount: assetForm.amount,
+      manualPrice: assetForm.manualPrice,
+      priceCurrency: assetForm.priceCurrency
+    });
+
+    // Check if manual price is provided (for bank/investment assets)
+    if (assetForm.manualPrice && parseFloat(assetForm.manualPrice) > 0) {
+      // Store the raw price as entered - no conversion!
+      // The display components will handle conversion based on originalCurrency
+      price = parseFloat(assetForm.manualPrice);
+      originalCurrency = assetForm.priceCurrency || 'EUR';
+      console.log(`[addAsset] Stored ${price} in ${originalCurrency} (no conversion)`);
+    } else if (assetForm.type === 'crypto') {
       try {
         coinId = await resolveCoinId(assetForm.symbol);
 
@@ -203,6 +227,8 @@ export function usePortfolio() {
         console.error('Failed to fetch price');
         return { success: false, message: 'Failed to fetch price from API' };
       }
+      // Crypto prices are always in USD
+      originalCurrency = 'USD';
     } else if (assetForm.type === 'stock') {
       try {
         const response = await fetch(
@@ -217,8 +243,11 @@ export function usePortfolio() {
         console.error('Failed to fetch price');
         return { success: false, message: 'Failed to fetch stock price' };
       }
+      // Stock prices are always in USD
+      originalCurrency = 'USD';
     } else if (assetForm.type === 'bank') {
         price = 1;
+        originalCurrency = 'USD';
     }
 
     const newAsset: Asset = {
@@ -229,7 +258,8 @@ export function usePortfolio() {
       amount: parseFloat(assetForm.amount),
       price: price,
       coinId: coinId,
-      lastFetched: Date.now()
+      lastFetched: Date.now(),
+      originalCurrency: originalCurrency
     };
 
     setAssets(prev => {
@@ -242,13 +272,22 @@ export function usePortfolio() {
         return updated;
     });
 
-    return { success: true, message: `Added ${newAsset.symbol} at $${price.toLocaleString()}` };
+    const displaySymbol = originalCurrency === 'EUR' ? '€' : '$';
+    return { success: true, message: `Added ${newAsset.symbol} at ${displaySymbol}${price.toLocaleString()}` };
   }, []);
 
   const updateAssetAmount = (assetId: number, newAmount: string) => {
     setAssets(prev => prev.map(asset =>
       asset.id === assetId
         ? { ...asset, amount: parseFloat(newAmount) }
+        : asset
+    ));
+  };
+
+  const updateAssetPrice = (assetId: number, newPrice: string) => {
+    setAssets(prev => prev.map(asset =>
+      asset.id === assetId
+        ? { ...asset, price: parseFloat(newPrice), lastFetched: Date.now() }
         : asset
     ));
   };
@@ -266,6 +305,7 @@ export function usePortfolio() {
     lastUpdate,
     addAsset,
     updateAssetAmount,
+    updateAssetPrice,
     deleteAsset
   };
 }

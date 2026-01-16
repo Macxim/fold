@@ -9,8 +9,11 @@ interface CurrencyContextType {
   setCurrency: (currency: Currency) => void;
   exchangeRate: number; // EUR per 1 USD
   convert: (amountUSD: number) => number;
+  convertFromOriginal: (amount: number, originalCurrency?: Currency) => number;
   formatValue: (amountUSD: number, showDecimals?: boolean) => string;
+  formatValueFromOriginal: (amount: number, originalCurrency?: Currency) => string;
   formatPrice: (priceUSD: number) => string;
+  formatPriceFromOriginal: (price: number, originalCurrency?: Currency) => string;
   symbol: string;
 }
 
@@ -34,7 +37,7 @@ export function useCurrency() {
 
 export function CurrencyProvider({ children }: { children: ReactNode }) {
   const [currency, setCurrencyState] = useState<Currency>('USD');
-  const [exchangeRate, setExchangeRate] = useState<number>(0.92); // Default EUR rate
+  const [exchangeRate, setExchangeRate] = useState<number>(0.92); // Default EUR rate (EUR per 1 USD)
 
   // Load saved currency preference
   useEffect(() => {
@@ -95,9 +98,28 @@ export function CurrencyProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  // Convert USD to display currency
   const convert = useCallback((amountUSD: number): number => {
     if (currency === 'USD') return amountUSD;
     return amountUSD * exchangeRate;
+  }, [currency, exchangeRate]);
+
+  // Convert from original currency to display currency
+  const convertFromOriginal = useCallback((amount: number, originalCurrency: Currency = 'USD'): number => {
+    // If original and display currency are the same, no conversion needed
+    if (originalCurrency === currency) return amount;
+
+    // EUR -> USD: divide by exchangeRate (EUR per USD)
+    if (originalCurrency === 'EUR' && currency === 'USD') {
+      return amount / exchangeRate;
+    }
+
+    // USD -> EUR: multiply by exchangeRate
+    if (originalCurrency === 'USD' && currency === 'EUR') {
+      return amount * exchangeRate;
+    }
+
+    return amount;
   }, [currency, exchangeRate]);
 
   const formatValue = useCallback((amountUSD: number, showDecimals = true): string => {
@@ -113,6 +135,17 @@ export function CurrencyProvider({ children }: { children: ReactNode }) {
 
     return sym + Math.floor(value).toLocaleString();
   }, [convert, currency]);
+
+  // Format value from original currency to display currency
+  const formatValueFromOriginal = useCallback((amount: number, originalCurrency: Currency = 'USD'): string => {
+    const value = convertFromOriginal(amount, originalCurrency);
+    const sym = currency === 'USD' ? '$' : '€';
+
+    return sym + value.toLocaleString(undefined, {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    });
+  }, [convertFromOriginal, currency]);
 
   const formatPrice = useCallback((priceUSD: number): string => {
     const price = convert(priceUSD);
@@ -151,6 +184,40 @@ export function CurrencyProvider({ children }: { children: ReactNode }) {
     });
   }, [convert, currency]);
 
+  // Format price from original currency
+  const formatPriceFromOriginal = useCallback((price: number, originalCurrency: Currency = 'USD'): string => {
+    const convertedPrice = convertFromOriginal(price, originalCurrency);
+    const sym = currency === 'USD' ? '$' : '€';
+
+    if (convertedPrice === 0) return sym + '0.00';
+
+    if (convertedPrice < 0.0001) {
+      return sym + convertedPrice.toLocaleString(undefined, {
+        minimumFractionDigits: 8,
+        maximumFractionDigits: 8
+      });
+    }
+
+    if (convertedPrice < 0.01) {
+      return sym + convertedPrice.toLocaleString(undefined, {
+        minimumFractionDigits: 6,
+        maximumFractionDigits: 6
+      });
+    }
+
+    if (convertedPrice < 1) {
+      return sym + convertedPrice.toLocaleString(undefined, {
+        minimumFractionDigits: 4,
+        maximumFractionDigits: 4
+      });
+    }
+
+    return sym + convertedPrice.toLocaleString(undefined, {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    });
+  }, [convertFromOriginal, currency]);
+
   const symbol = currency === 'USD' ? '$' : '€';
 
   return (
@@ -159,8 +226,11 @@ export function CurrencyProvider({ children }: { children: ReactNode }) {
       setCurrency,
       exchangeRate,
       convert,
+      convertFromOriginal,
       formatValue,
+      formatValueFromOriginal,
       formatPrice,
+      formatPriceFromOriginal,
       symbol
     }}>
       {children}
