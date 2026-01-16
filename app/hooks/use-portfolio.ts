@@ -13,6 +13,7 @@ export interface Asset {
   coinId?: string;
   lastFetched?: number;
   originalCurrency?: 'USD' | 'EUR'; // For manually entered values (bank assets)
+  isHidden?: boolean;
 }
 
 export interface HistoryEntry {
@@ -292,11 +293,21 @@ export function usePortfolio() {
     ));
   };
 
+  const toggleHideAsset = (assetId: number) => {
+    setAssets(prev => prev.map(asset =>
+      asset.id === assetId
+        ? { ...asset, isHidden: !asset.isHidden }
+        : asset
+    ));
+  };
+
   const deleteAsset = (assetId: number) => {
       setAssets(prev => prev.filter(a => a.id !== assetId));
   }
 
-  const totalValue = assets.reduce((sum, asset) => sum + (asset.amount * asset.price), 0);
+  const totalValue = assets
+    .filter(a => !a.isHidden)
+    .reduce((sum, asset) => sum + (asset.amount * asset.price), 0);
 
   return {
     assets,
@@ -306,6 +317,7 @@ export function usePortfolio() {
     addAsset,
     updateAssetAmount,
     updateAssetPrice,
+    toggleHideAsset,
     deleteAsset
   };
 }

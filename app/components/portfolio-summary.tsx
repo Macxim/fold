@@ -15,7 +15,8 @@ export function PortfolioSummary({ assets, history, lastUpdate }: PortfolioSumma
   const { convertFromOriginal, symbol, convert } = useCurrency();
 
   // Calculate total value by converting each asset from its original currency
-  const convertedValue = assets.reduce((sum, asset) => {
+  const visibleAssets = assets.filter(a => !a.isHidden);
+  const convertedValue = visibleAssets.reduce((sum, asset) => {
     const assetValue = asset.amount * asset.price;
     return sum + convertFromOriginal(assetValue, asset.originalCurrency);
   }, 0);

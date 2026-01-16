@@ -7,7 +7,7 @@ import { AssetList } from "./components/asset-list";
 import { usePortfolio } from "./hooks/use-portfolio";
 
 export default function Home() {
-  const { assets, history, lastUpdate, updateAssetAmount, updateAssetPrice } = usePortfolio();
+  const { assets, history, lastUpdate, updateAssetAmount, updateAssetPrice, toggleHideAsset, deleteAsset } = usePortfolio();
 
   return (
     <div className="flex min-h-screen bg-background font-sans text-foreground selection:bg-accent selection:text-accent-foreground">
@@ -24,7 +24,13 @@ export default function Home() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8">
             <PortfolioSummary assets={assets} history={history} lastUpdate={lastUpdate} />
             <AssetAllocation assets={assets} />
-            <AssetList assets={assets} onUpdateAmount={updateAssetAmount} onUpdatePrice={updateAssetPrice} />
+            <AssetList
+              assets={assets}
+              onUpdateAmount={updateAssetAmount}
+              onUpdatePrice={updateAssetPrice}
+              onToggleHide={toggleHideAsset}
+              onDelete={deleteAsset}
+            />
         </div>
       </main>
     </div>

@@ -6,7 +6,8 @@ interface AssetAllocationProps {
 }
 
 export function AssetAllocation({ assets }: AssetAllocationProps) {
-  const totalValue = assets.reduce((sum, asset) => sum + (asset.amount * asset.price), 0);
+  const visibleAssets = assets.filter(a => !a.isHidden);
+  const totalValue = visibleAssets.reduce((sum, asset) => sum + (asset.amount * asset.price), 0);
 
   // Group by symbol to account for multiple entries of same asset if needed,
   // but looking at logic it seems we treat individual entries or unique assets.
@@ -16,7 +17,7 @@ export function AssetAllocation({ assets }: AssetAllocationProps) {
   // User snippet: `allocation = assets.map(asset => ({...}))`.
   // It effectively lists every asset entry.
 
-  const allocation = assets.map(asset => ({
+  const allocation = visibleAssets.map(asset => ({
     name: asset.symbol,
     value: asset.amount * asset.price,
     percent: totalValue > 0 ? ((asset.amount * asset.price) / totalValue * 100) : 0,
@@ -27,7 +28,7 @@ export function AssetAllocation({ assets }: AssetAllocationProps) {
   return (
     <DashboardCard title="Allocation" className="col-span-1">
       <div className="flex flex-col justify-center h-full space-y-8">
-        {assets.length > 0 ? (
+        {visibleAssets.length > 0 ? (
             <>
                 <div className="flex w-full h-4 gap-px bg-neutral-900 border border-border p-0.5">
                     {allocation.map((asset, i) => (
