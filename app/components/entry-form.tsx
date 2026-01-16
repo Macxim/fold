@@ -96,7 +96,7 @@ export function EntryForm() {
                                 name="symbol"
                                 value={formData.symbol}
                                 onChange={handleChange}
-                                placeholder={showManualPrice ? "SAVINGS" : "BTC"}
+                                placeholder={showManualPrice ? "SAVINGS" : formData.type === 'stock' ? "AMZ.DE, AAPL..." : "BTC"}
                                 className={inputClasses}
                             />
                         </div>

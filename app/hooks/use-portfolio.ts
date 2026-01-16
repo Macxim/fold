@@ -232,20 +232,39 @@ export function usePortfolio() {
       originalCurrency = 'USD';
     } else if (assetForm.type === 'stock') {
       try {
-        const response = await fetch(
-          `https://query1.finance.yahoo.com/v8/finance/chart/${assetForm.symbol.toUpperCase()}`
-        );
+        const symbol = assetForm.symbol.toUpperCase();
+        const url = `/api/stock-price?symbol=${symbol}`;
+        console.log(`[addAsset] Fetching stock from proxy: ${url}`);
+
+        const response = await fetch(url);
+
+        if (!response.ok) {
+          console.error(`[addAsset] Stock fetch via proxy failed with status ${response.status}`);
+          return { success: false, message: `Stock service error (${response.status})` };
+        }
+
         const data = await response.json();
-        price = data.chart?.result?.[0]?.meta?.regularMarketPrice || 0;
+        const result = data.chart?.result?.[0];
+
+        price = result?.meta?.regularMarketPrice || 0;
+        const fetchedCurrency = result?.meta?.currency;
+
         if (!price) {
             return { success: false, message: `Could not find stock: ${assetForm.symbol}` };
         }
+
+        // Set originalCurrency based on Yahoo metadata (default to USD)
+        if (fetchedCurrency === 'EUR') {
+          originalCurrency = 'EUR';
+        } else {
+          originalCurrency = 'USD';
+        }
+
+        console.log(`[addAsset] Stock ${symbol} price=${price} currency=${fetchedCurrency} -> stored as ${originalCurrency}`);
       } catch (error) {
         console.error('Failed to fetch price');
         return { success: false, message: 'Failed to fetch stock price' };
       }
-      // Stock prices are always in USD
-      originalCurrency = 'USD';
     } else if (assetForm.type === 'bank') {
         price = 1;
         originalCurrency = 'USD';
