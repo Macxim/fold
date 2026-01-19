@@ -17,22 +17,32 @@ export function AssetAllocation({ assets }: AssetAllocationProps) {
   // User snippet: `allocation = assets.map(asset => ({...}))`.
   // It effectively lists every asset entry.
 
-  const allocation = visibleAssets.map(asset => ({
-    name: asset.symbol,
-    value: asset.amount * asset.price,
-    percent: totalValue > 0 ? ((asset.amount * asset.price) / totalValue * 100) : 0,
-    // Cycle colors
-    color: asset.type === 'crypto' ? 'bg-foreground' : asset.type === 'stock' ? 'bg-neutral-500' : 'bg-accent'
-  })).sort((a, b) => b.value - a.value).slice(0, 5); // Top 5
+  const colors = [
+    'bg-indigo-500',
+    'bg-emerald-500',
+    'bg-amber-500',
+    'bg-rose-500',
+    'bg-cyan-500',
+  ];
+
+  const allocation = visibleAssets
+    .sort((a, b) => (b.amount * b.price) - (a.amount * a.price))
+    .slice(0, 5)
+    .map((asset, i) => ({
+      name: asset.symbol,
+      value: asset.amount * asset.price,
+      percent: totalValue > 0 ? ((asset.amount * asset.price) / totalValue * 100) : 0,
+      color: colors[i % colors.length]
+    }));
 
   return (
     <DashboardCard title="Allocation" className="col-span-1">
       <div className="flex flex-col justify-center h-full space-y-8">
         {visibleAssets.length > 0 ? (
             <>
-                <div className="flex w-full h-4 gap-px bg-neutral-900 border border-border p-0.5">
+                <div className="flex w-full h-4 gap-px bg-neutral-900 border border-border p-0.5 rounded-sm overflow-hidden">
                     {allocation.map((asset, i) => (
-                        <div key={`${asset.name}-${i}`} style={{ width: `${asset.percent}%` }} className={`h-full ${asset.color} ${i > 2 ? 'opacity-50' : ''}`} />
+                        <div key={`${asset.name}-${i}`} style={{ width: `${asset.percent}%` }} className={`h-full ${asset.color} transition-all duration-500`} />
                     ))}
                 </div>
 
@@ -40,10 +50,10 @@ export function AssetAllocation({ assets }: AssetAllocationProps) {
                     {allocation.map((asset, i) => (
                         <div key={`${asset.name}-${i}`} className="flex justify-between items-center text-sm">
                             <div className="flex items-center gap-3">
-                                <div className={`w-2 h-2 rounded-sm ${asset.color} ${i > 2 ? 'opacity-50' : ''}`} />
-                                <span className="text-muted-foreground uppercase text-xs tracking-wider">{asset.name}</span>
+                                <div className={`w-2 h-2 rounded-full ${asset.color}`} />
+                                <span className="text-muted-foreground uppercase text-[10px] tracking-widest font-medium">{asset.name}</span>
                             </div>
-                            <span className="font-mono text-foreground">{asset.percent.toFixed(1)}%</span>
+                            <span className="font-mono text-foreground text-xs">{asset.percent.toFixed(1)}%</span>
                         </div>
                     ))}
                 </div>
