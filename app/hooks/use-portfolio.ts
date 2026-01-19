@@ -44,6 +44,10 @@ export function usePortfolio() {
   const [history, setHistory] = useState<HistoryEntry[]>([]);
   const [lastUpdate, setLastUpdate] = useState<string | null>(null);
 
+  const totalValue = assets
+    .filter(a => !a.isHidden)
+    .reduce((sum, asset) => sum + (asset.amount * asset.price), 0);
+
   // Use ref to always have access to current assets without stale closures
   const assetsRef = useRef<Asset[]>([]);
   assetsRef.current = assets;
@@ -180,36 +184,6 @@ export function usePortfolio() {
       setAssets(updatedAssets);
       setLastUpdate(new Date().toLocaleString());
 
-      // Update history if new day
-      const today = new Date().toISOString().split('T')[0];
-      const savedHistory = localStorage.getItem('fold-history-v2');
-      const currentHistory: HistoryEntry[] = savedHistory ? JSON.parse(savedHistory) : [];
-      const lastHistoryDate = currentHistory.length > 0 ? currentHistory[currentHistory.length - 1].date : null;
-
-      if (lastHistoryDate !== today) {
-        const totalValue = updatedAssets.reduce((sum, asset) => sum + (asset.amount * asset.price), 0);
-
-        // Push to Supabase
-        const pushToSupabase = async () => {
-          try {
-            const { error } = await supabase
-              .from('portfolio_history')
-              .upsert({ date: today, total_value: totalValue }, { onConflict: 'date' });
-
-            if (error) throw error;
-            console.log('[usePortfolio] History synced to Supabase');
-          } catch (e) {
-            console.error('[usePortfolio] Error syncing history to Supabase:', e);
-          }
-        };
-
-        pushToSupabase();
-        setHistory(prev => {
-          const filtered = prev.filter(h => h.date !== today);
-          return [...filtered, { date: today, value: totalValue }];
-        });
-      }
-
       isFetchingRef.current = false;
       console.log('[usePortfolio] Price update complete');
     };
@@ -223,6 +197,40 @@ export function usePortfolio() {
 
     return () => clearTimeout(timer);
   }, [assets.length]); // Only re-run if number of assets changes
+
+  // Reactive Sync Effect - watches totalValue and updates local + Supabase history
+  useEffect(() => {
+    if (totalValue === 0) return;
+
+    const today = new Date().toISOString().split('T')[0];
+
+    // 1. Update local history state immediately for UI snappiness
+    setHistory(prev => {
+      const lastEntry = prev[prev.length - 1];
+      if (lastEntry?.date === today && lastEntry.value === totalValue) return prev;
+
+      const filtered = prev.filter(h => h.date !== today);
+      const updated = [...filtered, { date: today, value: totalValue }];
+      localStorage.setItem('fold-history-v2', JSON.stringify(updated));
+      return updated;
+    });
+
+    // 2. Debounce and sync to Supabase
+    const timer = setTimeout(async () => {
+      try {
+        const { error } = await supabase
+          .from('portfolio_history')
+          .upsert({ date: today, total_value: totalValue }, { onConflict: 'date' });
+
+        if (error) throw error;
+        console.log('[usePortfolio] History synced to Supabase (Reactive)');
+      } catch (e) {
+        console.error('[usePortfolio] Error syncing history to Supabase:', e);
+      }
+    }, 2000);
+
+    return () => clearTimeout(timer);
+  }, [totalValue]);
 
 
   const addAsset = useCallback(async (assetForm: {
@@ -368,10 +376,6 @@ export function usePortfolio() {
   const deleteAsset = (assetId: number) => {
       setAssets(prev => prev.filter(a => a.id !== assetId));
   }
-
-  const totalValue = assets
-    .filter(a => !a.isHidden)
-    .reduce((sum, asset) => sum + (asset.amount * asset.price), 0);
 
   const migrateLocalToSupabase = useCallback(async () => {
     const savedHistory = localStorage.getItem('fold-history-v2');
