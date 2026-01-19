@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { supabase } from '@/lib/supabase';
 
 // Cache duration: 6 hours
 const CACHE_DURATION_MS = 6 * 60 * 60 * 1000;
@@ -56,6 +57,31 @@ export function usePortfolio() {
       const savedHistory = localStorage.getItem('fold-history-v2');
       if (savedAssets) setAssets(JSON.parse(savedAssets));
       if (savedHistory) setHistory(JSON.parse(savedHistory));
+
+      // Load history from Supabase
+      const fetchHistory = async () => {
+        try {
+          const { data, error } = await supabase
+            .from('portfolio_history')
+            .select('date, total_value')
+            .order('date', { ascending: true });
+
+          if (error) throw error;
+
+          if (data) {
+            const formattedHistory: HistoryEntry[] = data.map(item => ({
+              date: item.date,
+              value: Number(item.total_value)
+            }));
+            setHistory(formattedHistory);
+            localStorage.setItem('fold-history-v2', JSON.stringify(formattedHistory));
+          }
+        } catch (e) {
+          console.error('[usePortfolio] Error fetching history from Supabase:', e);
+        }
+      };
+
+      fetchHistory();
     }
   }, []);
 
@@ -162,7 +188,26 @@ export function usePortfolio() {
 
       if (lastHistoryDate !== today) {
         const totalValue = updatedAssets.reduce((sum, asset) => sum + (asset.amount * asset.price), 0);
-        setHistory(prev => [...prev, { date: today, value: totalValue }]);
+
+        // Push to Supabase
+        const pushToSupabase = async () => {
+          try {
+            const { error } = await supabase
+              .from('portfolio_history')
+              .upsert({ date: today, total_value: totalValue }, { onConflict: 'date' });
+
+            if (error) throw error;
+            console.log('[usePortfolio] History synced to Supabase');
+          } catch (e) {
+            console.error('[usePortfolio] Error syncing history to Supabase:', e);
+          }
+        };
+
+        pushToSupabase();
+        setHistory(prev => {
+          const filtered = prev.filter(h => h.date !== today);
+          return [...filtered, { date: today, value: totalValue }];
+        });
       }
 
       isFetchingRef.current = false;
@@ -328,6 +373,39 @@ export function usePortfolio() {
     .filter(a => !a.isHidden)
     .reduce((sum, asset) => sum + (asset.amount * asset.price), 0);
 
+  const migrateLocalToSupabase = useCallback(async () => {
+    const savedHistory = localStorage.getItem('fold-history-v2');
+    const today = new Date().toISOString().split('T')[0];
+
+    try {
+      let historyToSync: { date: string, total_value: number }[] = [];
+
+      if (savedHistory) {
+        const localHistory: HistoryEntry[] = JSON.parse(savedHistory);
+        historyToSync = localHistory.map(h => ({ date: h.date, total_value: h.value }));
+      }
+
+      // Always ensure today's current value is included if not present
+      if (!historyToSync.find(h => h.date === today)) {
+        historyToSync.push({ date: today, total_value: totalValue });
+      }
+
+      if (historyToSync.length === 0) {
+        return { success: false, message: 'No data to migrate (no assets or history)' };
+      }
+
+      const { error } = await supabase
+        .from('portfolio_history')
+        .upsert(historyToSync, { onConflict: 'date' });
+
+      if (error) throw error;
+      return { success: true, message: `Successfully synced ${historyToSync.length} days of history to Supabase` };
+    } catch (e: any) {
+      console.error('[usePortfolio] Sync failed:', e);
+      return { success: false, message: `Sync failed: ${e.message}` };
+    }
+  }, [totalValue]);
+
   return {
     assets,
     history,
@@ -337,6 +415,7 @@ export function usePortfolio() {
     updateAssetAmount,
     updateAssetPrice,
     toggleHideAsset,
-    deleteAsset
+    deleteAsset,
+    migrateLocalToSupabase
   };
 }
