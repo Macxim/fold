@@ -72,13 +72,27 @@ export function usePortfolio() {
 
           if (error) throw error;
 
-          if (data) {
+          if (data && data.length > 0) {
             const formattedHistory: HistoryEntry[] = data.map(item => ({
               date: item.date,
               value: Number(item.total_value)
             }));
-            setHistory(formattedHistory);
-            localStorage.setItem('fold-history-v2', JSON.stringify(formattedHistory));
+
+            setHistory(prev => {
+              // Combine local and remote history, preferring remote (Supabase) for the same date
+              const combined = [...prev];
+              formattedHistory.forEach(remoteEntry => {
+                const index = combined.findIndex(h => h.date === remoteEntry.date);
+                if (index !== -1) {
+                  combined[index] = remoteEntry;
+                } else {
+                  combined.push(remoteEntry);
+                }
+              });
+              const sorted = combined.sort((a, b) => a.date.localeCompare(b.date));
+              localStorage.setItem('fold-history-v2', JSON.stringify(sorted));
+              return sorted;
+            });
           }
         } catch (e) {
           console.error('[usePortfolio] Error fetching history from Supabase:', e);
@@ -167,7 +181,7 @@ export function usePortfolio() {
             try {
               console.log(`[usePortfolio] Fetching price for ${asset.symbol}`);
               const response = await fetch(
-                `https://query1.finance.yahoo.com/v8/finance/chart/${asset.symbol.toUpperCase()}`
+                `/api/stock-price?symbol=${asset.symbol.toUpperCase()}`
               );
               const data = await response.json();
               price = data.chart?.result?.[0]?.meta?.regularMarketPrice || price;
@@ -222,10 +236,18 @@ export function usePortfolio() {
           .from('portfolio_history')
           .upsert({ date: today, total_value: totalValue }, { onConflict: 'date' });
 
-        if (error) throw error;
+        if (error) {
+          console.error('[usePortfolio] Supabase sync error details:', {
+            message: error.message,
+            details: error.details,
+            hint: error.hint,
+            code: error.code
+          });
+          throw error;
+        }
         console.log('[usePortfolio] History synced to Supabase (Reactive)');
-      } catch (e) {
-        console.error('[usePortfolio] Error syncing history to Supabase:', e);
+      } catch (e: any) {
+        console.error('[usePortfolio] Error syncing history to Supabase:', e.message || e);
       }
     }, 2000);
 
