@@ -1,7 +1,7 @@
 'use client';
 
 import { DashboardCard } from "./dashboard-card";
-import { LineChart, Line, Tooltip, ResponsiveContainer } from 'recharts';
+import { LineChart, Line, Tooltip, ResponsiveContainer, XAxis } from 'recharts';
 import { HistoryEntry, Asset } from "../hooks/use-portfolio";
 import { useCurrency } from "../context/currency-context";
 
@@ -79,7 +79,15 @@ export function PortfolioSummary({ assets, history, lastUpdate }: PortfolioSumma
                     <stop offset="95%" stopColor="#d4b483" stopOpacity={0}/>
                   </linearGradient>
                 </defs>
+                <XAxis dataKey="date" hide />
                 <Tooltip
+                  labelFormatter={(date) => {
+                    return new Date(date).toLocaleDateString(undefined, {
+                      year: 'numeric',
+                      month: 'short',
+                      day: 'numeric'
+                    });
+                  }}
                   contentStyle={{
                     backgroundColor: '#18181b',
                     border: '1px solid #27272a',
