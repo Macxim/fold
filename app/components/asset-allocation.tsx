@@ -7,53 +7,81 @@ interface AssetAllocationProps {
 
 export function AssetAllocation({ assets }: AssetAllocationProps) {
   const visibleAssets = assets.filter(a => !a.isHidden);
+
+  // Group by type and collect assets
+  const typeGroups: Record<string, { total: number, label: string, assets: { symbol: string, value: number, percent: number }[] }> = {
+    stock: { total: 0, label: 'Stocks', assets: [] },
+    crypto: { total: 0, label: 'Crypto', assets: [] },
+    bank: { total: 0, label: 'Cash & Bank', assets: [] }
+  };
+
   const totalValue = visibleAssets.reduce((sum, asset) => sum + (asset.amount * asset.price), 0);
 
-  // Group by symbol to account for multiple entries of same asset if needed,
-  // but looking at logic it seems we treat individual entries or unique assets.
-  // The user's snippet logic for allocation groups by symbol:
-  // allocation = assets.map(...) -> this implies assets are unique by symbol or they list individually.
-  // Let's assume the hook list is granular. But for allocation we might want to aggregate by type or symbol.
-  // User snippet: `allocation = assets.map(asset => ({...}))`.
-  // It effectively lists every asset entry.
+  visibleAssets.forEach(asset => {
+    if (typeGroups[asset.type]) {
+      const value = asset.amount * asset.price;
+      typeGroups[asset.type].total += value;
+      typeGroups[asset.type].assets.push({
+        symbol: asset.symbol,
+        value: value,
+        percent: totalValue > 0 ? (value / totalValue * 100) : 0
+      });
+    }
+  });
 
-  const colors = [
-    'bg-indigo-500',
-    'bg-emerald-500',
-    'bg-amber-500',
-    'bg-rose-500',
-    'bg-cyan-500',
-  ];
+  // Sort assets within each group and categories by total value
+  Object.values(typeGroups).forEach(group => {
+    group.assets.sort((a, b) => b.value - a.value);
+  });
 
-  const allocation = visibleAssets
-    .sort((a, b) => (b.amount * b.price) - (a.amount * a.price))
-    .slice(0, 5)
-    .map((asset, i) => ({
-      name: asset.symbol,
-      value: asset.amount * asset.price,
-      percent: totalValue > 0 ? ((asset.amount * asset.price) / totalValue * 100) : 0,
-      color: colors[i % colors.length]
+  const colors: Record<string, string> = {
+    stock: 'bg-indigo-500',
+    crypto: 'bg-emerald-500',
+    bank: 'bg-amber-500',
+  };
+
+  const allocation = Object.entries(typeGroups)
+    .filter(([_, group]) => group.total > 0)
+    .sort((a, b) => b[1].total - a[1].total)
+    .map(([type, group]) => ({
+      type,
+      name: group.label,
+      value: group.total,
+      percent: totalValue > 0 ? (group.total / totalValue * 100) : 0,
+      color: colors[type] || 'bg-neutral-500',
+      assets: group.assets
     }));
 
   return (
     <DashboardCard title="Allocation" className="col-span-1">
-      <div className="flex flex-col justify-center h-full space-y-8">
-        {visibleAssets.length > 0 ? (
+      <div className="flex flex-col justify-center h-full space-y-6">
+        {allocation.length > 0 ? (
             <>
                 <div className="flex w-full h-4 gap-px bg-neutral-900 border border-border p-0.5 rounded-sm overflow-hidden">
-                    {allocation.map((asset, i) => (
-                        <div key={`${asset.name}-${i}`} style={{ width: `${asset.percent}%` }} className={`h-full ${asset.color} transition-all duration-500`} />
+                    {allocation.map((group, i) => (
+                        <div key={`${group.name}-${i}`} style={{ width: `${group.percent}%` }} className={`h-full ${group.color} transition-all duration-500`} />
                     ))}
                 </div>
 
-                <div className="space-y-3">
-                    {allocation.map((asset, i) => (
-                        <div key={`${asset.name}-${i}`} className="flex justify-between items-center text-sm">
-                            <div className="flex items-center gap-3">
-                                <div className={`w-2 h-2 rounded-full ${asset.color}`} />
-                                <span className="text-muted-foreground uppercase text-[10px] tracking-widest font-medium">{asset.name}</span>
+                <div className="space-y-6">
+                    {allocation.map((group, i) => (
+                        <div key={`${group.name}-${i}`} className="space-y-2">
+                            <div className="flex justify-between items-center text-sm">
+                                <div className="flex items-center gap-3">
+                                    <div className={`w-2 h-2 rounded-full ${group.color}`} />
+                                    <span className="text-foreground uppercase text-xs tracking-widest font-bold">{group.name}</span>
+                                </div>
+                                <span className="font-mono text-foreground text-xs font-bold">{group.percent.toFixed(1)}%</span>
                             </div>
-                            <span className="font-mono text-foreground text-xs">{asset.percent.toFixed(1)}%</span>
+
+                            <div className="pl-5 space-y-1 border-l border-border/50 ml-1">
+                                {group.assets.map((asset, j) => (
+                                    <div key={`${asset.symbol}-${j}`} className="flex justify-between items-center text-[11px]">
+                                        <span className="text-muted-foreground font-mono">{asset.symbol}</span>
+                                        <span className="text-muted-foreground/70 font-mono">{asset.percent.toFixed(1)}%</span>
+                                    </div>
+                                ))}
+                            </div>
                         </div>
                     ))}
                 </div>
