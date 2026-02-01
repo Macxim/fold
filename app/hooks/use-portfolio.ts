@@ -57,29 +57,51 @@ export function usePortfolio() {
   // Load data on mount
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      const savedAssets = localStorage.getItem('fold-assets-v2');
       const savedHistory = localStorage.getItem('fold-history-v2');
-      if (savedAssets) setAssets(JSON.parse(savedAssets));
       if (savedHistory) setHistory(JSON.parse(savedHistory));
 
-      // Load history from Supabase
-      const fetchHistory = async () => {
+      const fetchPortfolioData = async () => {
         try {
-          const { data, error } = await supabase
+          // 1. Fetch Assets
+          const { data: assetData, error: assetError } = await supabase
+            .from('portfolio_assets')
+            .select('*')
+            .order('created_at', { ascending: true });
+
+          if (assetError) throw assetError;
+
+          if (assetData) {
+            const mappedAssets: Asset[] = assetData.map(item => ({
+              id: item.id,
+              symbol: item.symbol,
+              name: item.name,
+              type: item.type as any,
+              amount: Number(item.amount),
+              price: Number(item.price),
+              coinId: item.coin_id,
+              lastFetched: item.last_fetched_at ? new Date(item.last_fetched_at).getTime() : undefined,
+              originalCurrency: item.original_currency as any,
+              isHidden: item.is_hidden
+            }));
+            setAssets(mappedAssets);
+            assetsRef.current = mappedAssets;
+          }
+
+          // 2. Fetch History
+          const { data: historyData, error: historyError } = await supabase
             .from('portfolio_history')
             .select('date, total_value')
             .order('date', { ascending: true });
 
-          if (error) throw error;
+          if (historyError) throw historyError;
 
-          if (data && data.length > 0) {
-            const formattedHistory: HistoryEntry[] = data.map(item => ({
+          if (historyData && historyData.length > 0) {
+            const formattedHistory: HistoryEntry[] = historyData.map(item => ({
               date: item.date,
               value: Number(item.total_value)
             }));
 
             setHistory(prev => {
-              // Combine local and remote history, preferring remote (Supabase) for the same date
               const combined = [...prev];
               formattedHistory.forEach(remoteEntry => {
                 const index = combined.findIndex(h => h.date === remoteEntry.date);
@@ -95,15 +117,15 @@ export function usePortfolio() {
             });
           }
         } catch (e) {
-          console.error('[usePortfolio] Error fetching history from Supabase:', e);
+          console.error('[usePortfolio] Error fetching data from Supabase:', e);
         }
       };
 
-      fetchHistory();
+      fetchPortfolioData();
     }
   }, []);
 
-  // Save assets
+  // Save assets (LocalStorage backup only, Supabase is now source of truth)
   useEffect(() => {
     if (typeof window !== 'undefined' && assets.length > 0) {
       localStorage.setItem('fold-assets-v2', JSON.stringify(assets));
@@ -345,58 +367,129 @@ export function usePortfolio() {
         originalCurrency = 'USD';
     }
 
-    const newAsset: Asset = {
-      id: Date.now(),
-      symbol: assetForm.symbol.toUpperCase(),
-      name: assetForm.name || assetForm.symbol.toUpperCase(),
-      type: assetForm.type as any,
-      amount: parseFloat(assetForm.amount),
-      price: price,
-      coinId: coinId,
-      lastFetched: Date.now(),
-      originalCurrency: originalCurrency
-    };
+    try {
+      const { data, error } = await supabase
+        .from('portfolio_assets')
+        .insert([{
+          symbol: assetForm.symbol.toUpperCase(),
+          name: assetForm.name || assetForm.symbol.toUpperCase(),
+          type: assetForm.type,
+          amount: parseFloat(assetForm.amount),
+          price: price,
+          coin_id: coinId,
+          original_currency: originalCurrency,
+          last_fetched_at: new Date().toISOString()
+        }])
+        .select()
+        .single();
 
-    setAssets(prev => {
-        const updated = [...prev, newAsset];
-        localStorage.setItem('fold-assets-v2', JSON.stringify(updated));
-        window.dispatchEvent(new StorageEvent('storage', {
-            key: 'fold-assets-v2',
-            newValue: JSON.stringify(updated)
-        }));
-        return updated;
-    });
+      if (error) throw error;
 
-    const displaySymbol = originalCurrency === 'EUR' ? '€' : '$';
-    return { success: true, message: `Added ${newAsset.symbol} at ${displaySymbol}${price.toLocaleString()}` };
+      if (data) {
+        const newAsset: Asset = {
+          id: data.id,
+          symbol: data.symbol,
+          name: data.name,
+          type: data.type as any,
+          amount: Number(data.amount),
+          price: Number(data.price),
+          coinId: data.coin_id,
+          lastFetched: new Date(data.last_fetched_at).getTime(),
+          originalCurrency: data.original_currency as any,
+          isHidden: data.is_hidden
+        };
+
+        setAssets(prev => {
+          const updated = [...prev, newAsset];
+          return updated;
+        });
+
+        const displaySymbol = originalCurrency === 'EUR' ? '€' : '$';
+        return { success: true, message: `Added ${newAsset.symbol} at ${displaySymbol}${price.toLocaleString()}` };
+      }
+    } catch (e: any) {
+      console.error('[usePortfolio] Error adding asset:', e);
+      return { success: false, message: `Failed to save to Supabase: ${e.message}` };
+    }
+
+    return { success: false, message: 'Unknown error occurred' };
   }, []);
 
-  const updateAssetAmount = (assetId: number, newAmount: string) => {
-    setAssets(prev => prev.map(asset =>
-      asset.id === assetId
-        ? { ...asset, amount: parseFloat(newAmount) }
-        : asset
-    ));
+  const updateAssetAmount = async (assetId: number, newAmount: string) => {
+    const amount = parseFloat(newAmount);
+    if (isNaN(amount)) return;
+
+    try {
+      const { error } = await supabase
+        .from('portfolio_assets')
+        .update({ amount })
+        .eq('id', assetId);
+
+      if (error) throw error;
+
+      setAssets(prev => prev.map(asset =>
+        asset.id === assetId ? { ...asset, amount } : asset
+      ));
+    } catch (e) {
+      console.error('[usePortfolio] Error updating amount:', e);
+    }
   };
 
-  const updateAssetPrice = (assetId: number, newPrice: string) => {
-    setAssets(prev => prev.map(asset =>
-      asset.id === assetId
-        ? { ...asset, price: parseFloat(newPrice), lastFetched: Date.now() }
-        : asset
-    ));
+  const updateAssetPrice = async (assetId: number, newPrice: string) => {
+    const price = parseFloat(newPrice);
+    if (isNaN(price)) return;
+
+    try {
+      const { error } = await supabase
+        .from('portfolio_assets')
+        .update({ price, last_fetched_at: new Date().toISOString() })
+        .eq('id', assetId);
+
+      if (error) throw error;
+
+      setAssets(prev => prev.map(asset =>
+        asset.id === assetId ? { ...asset, price, lastFetched: Date.now() } : asset
+      ));
+    } catch (e) {
+      console.error('[usePortfolio] Error updating price:', e);
+    }
   };
 
-  const toggleHideAsset = (assetId: number) => {
-    setAssets(prev => prev.map(asset =>
-      asset.id === assetId
-        ? { ...asset, isHidden: !asset.isHidden }
-        : asset
-    ));
+  const toggleHideAsset = async (assetId: number) => {
+    const asset = assets.find(a => a.id === assetId);
+    if (!asset) return;
+
+    const newHiddenState = !asset.isHidden;
+
+    try {
+      const { error } = await supabase
+        .from('portfolio_assets')
+        .update({ is_hidden: newHiddenState })
+        .eq('id', assetId);
+
+      if (error) throw error;
+
+      setAssets(prev => prev.map(a =>
+        a.id === assetId ? { ...a, isHidden: newHiddenState } : a
+      ));
+    } catch (e) {
+      console.error('[usePortfolio] Error toggling visibility:', e);
+    }
   };
 
-  const deleteAsset = (assetId: number) => {
+  const deleteAsset = async (assetId: number) => {
+    try {
+      const { error } = await supabase
+        .from('portfolio_assets')
+        .delete()
+        .eq('id', assetId);
+
+      if (error) throw error;
+
       setAssets(prev => prev.filter(a => a.id !== assetId));
+    } catch (e) {
+      console.error('[usePortfolio] Error deleting asset:', e);
+    }
   }
 
   const migrateLocalToSupabase = useCallback(async () => {

@@ -73,10 +73,15 @@ export function EntryForm() {
     };
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-        setFormData({
-            ...formData,
-            [e.target.name]: e.target.value
-        });
+        const { name, value } = e.target;
+        setFormData(prev => ({
+            ...prev,
+            [name]: value,
+            // If switching to crypto, default to USD for cleaner logs/logic
+            ...(name === 'type' && value === 'crypto' ? { priceCurrency: 'USD' } : {}),
+            // If switching to bank, default to EUR as it's the more common manual input for this user
+            ...(name === 'type' && value === 'bank' ? { priceCurrency: 'EUR' } : {})
+        }));
     };
 
     const inputClasses = "w-full bg-background border border-border px-3 py-2 rounded-none focus:outline-none focus:border-accent text-foreground placeholder:text-muted-foreground/30 text-sm font-mono transition-colors";
