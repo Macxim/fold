@@ -179,9 +179,25 @@ export function EntryForm() {
                         <button
                             onClick={handleSubmit}
                             disabled={loading}
-                            className="w-full bg-foreground text-background hover:bg-neutral-800 transition-colors py-3 text-xs font-bold uppercase tracking-widest disabled:opacity-50"
+                            className="group relative w-full bg-foreground text-background hover:bg-accent hover:text-accent-foreground transition-all duration-300 py-3 text-xs font-bold uppercase tracking-widest disabled:opacity-50 active:scale-[0.98] overflow-hidden"
                         >
-                            {loading ? 'Adding...' : 'Add Asset'}
+                            <span className="relative z-10 flex items-center justify-center gap-2">
+                                {loading ? (
+                                    'Adding...'
+                                ) : (
+                                    <>
+                                        <svg
+                                            viewBox="0 0 20 20"
+                                            fill="currentColor"
+                                            className="w-4 h-4 transition-transform duration-300 group-hover:rotate-90"
+                                        >
+                                            <path d="M10.75 4.75a.75.75 0 00-1.5 0v4.5h-4.5a.75.75 0 000 1.5h4.5v4.5a.75.75 0 001.5 0v-4.5h4.5a.75.75 0 000-1.5h-4.5v-4.5z" />
+                                        </svg>
+                                        Add Asset
+                                    </>
+                                )}
+                            </span>
+                            <div className="absolute inset-0 bg-accent/20 translate-y-full group-hover:translate-y-0 transition-transform duration-300" />
                         </button>
                     </div>
                 </div>
