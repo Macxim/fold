@@ -1,5 +1,5 @@
 import { DashboardCard } from "./dashboard-card";
-import { Asset } from "../hooks/use-portfolio";
+import { Asset } from "@/types/portfolio";
 
 interface AssetAllocationProps {
   assets: Asset[];

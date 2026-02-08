@@ -38,15 +38,15 @@ export function useCurrency() {
 export function CurrencyProvider({ children }: { children: ReactNode }) {
   const [currency, setCurrencyState] = useState<Currency>('USD');
   const [exchangeRate, setExchangeRate] = useState<number>(0.92); // Default EUR rate (EUR per 1 USD)
+  const [isHydrated, setIsHydrated] = useState(false);
 
-  // Load saved currency preference
+  // Handle hydration
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('fold-currency');
-      if (saved === 'EUR' || saved === 'USD') {
-        setCurrencyState(saved);
-      }
+    const saved = localStorage.getItem('fold-currency');
+    if (saved === 'EUR' || saved === 'USD') {
+      setCurrencyState(saved as Currency);
     }
+    setIsHydrated(true);
   }, []);
 
   // Fetch exchange rate with caching
@@ -127,13 +127,13 @@ export function CurrencyProvider({ children }: { children: ReactNode }) {
     const sym = currency === 'USD' ? '$' : '€';
 
     if (showDecimals) {
-      return sym + value.toLocaleString(undefined, {
+      return sym + value.toLocaleString('en-US', {
         minimumFractionDigits: 2,
         maximumFractionDigits: 2
       });
     }
 
-    return sym + Math.floor(value).toLocaleString();
+    return sym + Math.floor(value).toLocaleString('en-US');
   }, [convert, currency]);
 
   // Format value from original currency to display currency
@@ -141,7 +141,7 @@ export function CurrencyProvider({ children }: { children: ReactNode }) {
     const value = convertFromOriginal(amount, originalCurrency);
     const sym = currency === 'USD' ? '$' : '€';
 
-    return sym + value.toLocaleString(undefined, {
+    return sym + value.toLocaleString('en-US', {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2
     });
@@ -192,27 +192,27 @@ export function CurrencyProvider({ children }: { children: ReactNode }) {
     if (convertedPrice === 0) return sym + '0.00';
 
     if (convertedPrice < 0.0001) {
-      return sym + convertedPrice.toLocaleString(undefined, {
+      return sym + convertedPrice.toLocaleString('en-US', {
         minimumFractionDigits: 8,
         maximumFractionDigits: 8
       });
     }
 
     if (convertedPrice < 0.01) {
-      return sym + convertedPrice.toLocaleString(undefined, {
+      return sym + convertedPrice.toLocaleString('en-US', {
         minimumFractionDigits: 6,
         maximumFractionDigits: 6
       });
     }
 
     if (convertedPrice < 1) {
-      return sym + convertedPrice.toLocaleString(undefined, {
+      return sym + convertedPrice.toLocaleString('en-US', {
         minimumFractionDigits: 4,
         maximumFractionDigits: 4
       });
     }
 
-    return sym + convertedPrice.toLocaleString(undefined, {
+    return sym + convertedPrice.toLocaleString('en-US', {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2
     });

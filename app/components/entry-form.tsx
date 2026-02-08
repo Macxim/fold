@@ -4,56 +4,46 @@ import { useState } from 'react';
 import { DashboardCard } from './dashboard-card';
 import { usePortfolio } from '../hooks/use-portfolio';
 import { useToast } from './toast';
+import { AssetForm, Currency } from '@/types/portfolio';
 
 export function EntryForm() {
     const { addAsset } = usePortfolio();
     const { showToast } = useToast();
-    const [formData, setFormData] = useState({
+    const [formData, setFormData] = useState<AssetForm>({
         symbol: '',
         name: '',
         type: 'crypto',
         amount: '',
         manualPrice: '',
-        priceCurrency: 'EUR' as 'USD' | 'EUR',
+        priceCurrency: 'EUR',
     });
     const [loading, setLoading] = useState(false);
 
     const handleSubmit = async () => {
         const isBankType = formData.type === 'bank';
 
-        // For bank type: require manualPrice, for others: require amount
         if (!formData.symbol) {
-            showToast('Please fill in symbol', 'error');
+            showToast('Symbol is required', 'warning');
             return;
         }
 
         if (isBankType && !formData.manualPrice) {
-            showToast('Please fill in the total value', 'error');
+            showToast('Total value is required for Bank assets', 'warning');
             return;
         }
 
         if (!isBankType && !formData.amount) {
-            showToast('Please fill in the quantity', 'error');
+            showToast('Quantity is required', 'warning');
             return;
         }
 
         setLoading(true);
 
         try {
-            // For bank type: amount = 1, price = manualPrice (in originalCurrency)
-            // For crypto/stock: amount = quantity, price fetched from API (in USD)
-            const result = await addAsset({
-                symbol: formData.symbol,
-                name: formData.name,
-                type: formData.type,
-                amount: isBankType ? '1' : formData.amount,
-                manualPrice: isBankType ? formData.manualPrice : undefined,
-                priceCurrency: formData.priceCurrency,
-            });
+            const result = await addAsset(formData);
 
             if (result.success) {
                 showToast(result.message, 'success');
-                // Reset form
                 setFormData({
                     symbol: '',
                     name: '',
@@ -77,10 +67,8 @@ export function EntryForm() {
         setFormData(prev => ({
             ...prev,
             [name]: value,
-            // If switching to crypto, default to USD for cleaner logs/logic
-            ...(name === 'type' && value === 'crypto' ? { priceCurrency: 'USD' } : {}),
-            // If switching to bank, default to EUR as it's the more common manual input for this user
-            ...(name === 'type' && value === 'bank' ? { priceCurrency: 'EUR' } : {})
+            ...(name === 'type' && value === 'crypto' ? { priceCurrency: 'USD' as Currency } : {}),
+            ...(name === 'type' && value === 'bank' ? { priceCurrency: 'EUR' as Currency } : {})
         }));
     };
 

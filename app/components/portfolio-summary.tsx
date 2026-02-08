@@ -2,7 +2,7 @@
 
 import { DashboardCard } from "./dashboard-card";
 import { LineChart, Line, Tooltip, ResponsiveContainer, XAxis } from 'recharts';
-import { HistoryEntry, Asset } from "../hooks/use-portfolio";
+import { HistoryEntry, Asset } from "@/types/portfolio";
 import { useCurrency } from "../context/currency-context";
 
 interface PortfolioSummaryProps {
@@ -47,7 +47,7 @@ export function PortfolioSummary({ assets, history, lastUpdate }: PortfolioSumma
           <div>
             <div className="flex items-baseline gap-2 mt-1">
               <span className="text-4xl md:text-5xl lg:text-6xl font-mono text-foreground tracking-tighter">
-                {symbol}{Math.floor(convertedValue).toLocaleString()}
+                {symbol}{Math.floor(convertedValue).toLocaleString('en-US')}
               </span>
               <span className="text-base md:text-xl text-muted-foreground font-mono">
                 .{(convertedValue % 1).toFixed(2).substring(2)}
@@ -82,7 +82,7 @@ export function PortfolioSummary({ assets, history, lastUpdate }: PortfolioSumma
                 <XAxis dataKey="date" hide />
                 <Tooltip
                   labelFormatter={(date) => {
-                    return new Date(date).toLocaleDateString(undefined, {
+                    return new Date(date).toLocaleDateString('en-US', {
                       year: 'numeric',
                       month: 'short',
                       day: 'numeric'
@@ -96,7 +96,7 @@ export function PortfolioSummary({ assets, history, lastUpdate }: PortfolioSumma
                     fontSize: '12px'
                   }}
                   itemStyle={{ color: '#f4f4f5' }}
-                  formatter={(value: any) => [`${symbol}${value.toLocaleString()}`, 'Value']}
+                  formatter={(value: number | undefined) => value !== undefined ? [`${symbol}${value.toLocaleString('en-US')}`, 'Value'] : ['', 'Value']}
                   labelStyle={{ color: '#a1a1aa', marginBottom: '4px' }}
                 />
                 <Line

@@ -1,7 +1,6 @@
 'use client';
 
 import Link from "next/link";
-import { CurrencySwitcher } from "./currency-switcher";
 
 const navItems = [
   { label: "Overview", href: "/" },
@@ -29,13 +28,6 @@ export function Sidebar() {
             </Link>
           ))}
         </nav>
-      </div>
-
-      <div className="pt-8 border-t border-border/50">
-        <div className="text-[10px] uppercase tracking-widest text-muted-foreground mb-3">
-          Currency
-        </div>
-        <CurrencySwitcher />
       </div>
     </aside>
   );

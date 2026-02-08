@@ -2,7 +2,7 @@
 
 import React, { useState, useRef, useEffect } from "react";
 import { DashboardCard } from "./dashboard-card";
-import { Asset } from "../hooks/use-portfolio";
+import { Asset } from "@/types/portfolio";
 import { useCurrency } from "../context/currency-context";
 
 interface AssetListProps {
@@ -11,6 +11,8 @@ interface AssetListProps {
   onUpdatePrice: (id: number, price: string) => void;
   onToggleHide: (id: number) => void;
   onDelete: (id: number) => void;
+  onRefreshPrices: () => void;
+  lastUpdate: string | null;
 }
 
 /**
@@ -21,15 +23,24 @@ function formatAmount(amount: number): string {
   if (amount === 0) return '0';
 
   // Always show up to 8 decimals, trimming trailing zeros
-  return amount.toLocaleString(undefined, {
+  return amount.toLocaleString('en-US', {
     minimumFractionDigits: 0,
     maximumFractionDigits: 8
   });
 }
 
-export function AssetList({ assets, onUpdateAmount, onUpdatePrice, onToggleHide, onDelete }: AssetListProps) {
+export function AssetList({
+  assets,
+  onUpdateAmount,
+  onUpdatePrice,
+  onToggleHide,
+  onDelete,
+  onRefreshPrices,
+  lastUpdate
+}: AssetListProps) {
   const [editingId, setEditingId] = useState<number | null>(null);
   const [openMenuId, setOpenMenuId] = useState<number | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
   const { formatPriceFromOriginal, formatValueFromOriginal } = useCurrency();
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -43,6 +54,13 @@ export function AssetList({ assets, onUpdateAmount, onUpdatePrice, onToggleHide,
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
+
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    onRefreshPrices();
+    // Simulate some loading behavior for visual feedback if instant
+    setTimeout(() => setRefreshing(false), 1000);
+  };
 
   const handleSave = (assetId: number, value: string, isPrice: boolean) => {
     if (value && !isNaN(parseFloat(value))) {
@@ -74,8 +92,28 @@ export function AssetList({ assets, onUpdateAmount, onUpdatePrice, onToggleHide,
     (typeConfigs[a]?.order || 99) - (typeConfigs[b]?.order || 99)
   );
 
+  const headerAction = (
+    <div className="flex items-center gap-4">
+      {lastUpdate && (
+        <span className="hidden sm:inline text-[10px] text-muted-foreground font-mono">
+          Last update: {lastUpdate}
+        </span>
+      )}
+      <button
+        onClick={handleRefresh}
+        disabled={refreshing}
+        className={`flex items-center gap-2 px-3 py-1 border border-border hover:border-accent hover:text-accent transition-all text-[10px] uppercase tracking-widest font-bold disabled:opacity-50 ${refreshing ? 'animate-pulse' : ''}`}
+      >
+        <svg viewBox="0 0 20 20" fill="currentColor" className={`w-3 h-3 ${refreshing ? 'animate-spin' : ''}`}>
+          <path fillRule="evenodd" d="M15.312 11.424a5 5 0 11-2.03-5.377l1.257-2.03A7 7 0 1018 10a7.005 7.005 0 00-2.688-5.576L15.312 11.424z" clipRule="evenodd" />
+        </svg>
+        {refreshing ? 'Refreshing...' : 'Refresh Prices'}
+      </button>
+    </div>
+  );
+
   return (
-    <DashboardCard title="Portfolio Assets" className="col-span-1 md:col-span-2 lg:col-span-3">
+    <DashboardCard title="Portfolio Assets" className="col-span-1 md:col-span-2 lg:col-span-3" action={headerAction}>
       <div className="overflow-x-auto">
         <table className="w-full text-sm text-left border-collapse">
           <thead className="text-[10px] uppercase tracking-widest text-muted-foreground border-b border-border/50 bg-background/50 backdrop-blur-sm sticky top-0 z-20">
