@@ -117,6 +117,21 @@ export function useAssets() {
     } catch (e) { console.error(e); }
   };
 
+  const updateAssetSymbol = async (id: number, symbol: string) => {
+    if (!symbol) return;
+    try {
+      await supabase.from('portfolio_assets').update({ symbol: symbol.toUpperCase() }).eq('id', id);
+      setAssets(prev => prev.map(a => a.id === id ? { ...a, symbol: symbol.toUpperCase() } : a));
+    } catch (e) { console.error(e); }
+  };
+
+  const updateAssetName = async (id: number, name: string) => {
+    try {
+      await supabase.from('portfolio_assets').update({ name }).eq('id', id);
+      setAssets(prev => prev.map(a => a.id === id ? { ...a, name } : a));
+    } catch (e) { console.error(e); }
+  };
+
   const toggleHideAsset = async (id: number) => {
     const asset = assets.find(a => a.id === id);
     if (!asset) return;
@@ -142,6 +157,8 @@ export function useAssets() {
     addAsset,
     updateAssetAmount,
     updateAssetPrice,
+    updateAssetSymbol,
+    updateAssetName,
     toggleHideAsset,
     deleteAsset
   };

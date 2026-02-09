@@ -14,6 +14,8 @@ export default function Home() {
     lastUpdate,
     updateAssetAmount,
     updateAssetPrice,
+    updateAssetSymbol,
+    updateAssetName,
     toggleHideAsset,
     deleteAsset,
     refreshPrices
@@ -44,6 +46,8 @@ export default function Home() {
               assets={assets}
               onUpdateAmount={updateAssetAmount}
               onUpdatePrice={updateAssetPrice}
+              onUpdateSymbol={updateAssetSymbol}
+              onUpdateName={updateAssetName}
               onToggleHide={toggleHideAsset}
               onDelete={deleteAsset}
               onRefreshPrices={refreshPrices}

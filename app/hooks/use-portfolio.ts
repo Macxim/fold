@@ -16,6 +16,8 @@ export function usePortfolio() {
     addAsset,
     updateAssetAmount,
     updateAssetPrice,
+    updateAssetSymbol,
+    updateAssetName,
     toggleHideAsset,
     deleteAsset
   } = useAssets();
@@ -54,6 +56,8 @@ export function usePortfolio() {
     addAsset,
     updateAssetAmount,
     updateAssetPrice,
+    updateAssetSymbol,
+    updateAssetName,
     toggleHideAsset,
     deleteAsset,
     migrateLocalToSupabase: () => migrateLocalToSupabase(totalValue),

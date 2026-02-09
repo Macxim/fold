@@ -9,6 +9,8 @@ interface AssetListProps {
   assets: Asset[];
   onUpdateAmount: (id: number, amount: string) => void;
   onUpdatePrice: (id: number, price: string) => void;
+  onUpdateSymbol: (id: number, symbol: string) => void;
+  onUpdateName: (id: number, name: string) => void;
   onToggleHide: (id: number) => void;
   onDelete: (id: number) => void;
   onRefreshPrices: () => void;
@@ -33,12 +35,15 @@ export function AssetList({
   assets,
   onUpdateAmount,
   onUpdatePrice,
+  onUpdateSymbol,
+  onUpdateName,
   onToggleHide,
   onDelete,
   onRefreshPrices,
   lastUpdate
 }: AssetListProps) {
   const [editingId, setEditingId] = useState<number | null>(null);
+  const [editingField, setEditingField] = useState<'amount' | 'price' | 'symbol' | 'name' | null>(null);
   const [openMenuId, setOpenMenuId] = useState<number | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const { formatPriceFromOriginal, formatValueFromOriginal } = useCurrency();
@@ -62,15 +67,29 @@ export function AssetList({
     setTimeout(() => setRefreshing(false), 1000);
   };
 
-  const handleSave = (assetId: number, value: string, isPrice: boolean) => {
-    if (value && !isNaN(parseFloat(value))) {
-      if (isPrice) {
-        onUpdatePrice(assetId, value);
-      } else {
-        onUpdateAmount(assetId, value);
-      }
+  const handleSave = (assetId: number, value: string, field: 'amount' | 'price' | 'symbol' | 'name') => {
+    if (value === undefined || value === null) {
+      setEditingId(null);
+      setEditingField(null);
+      return;
+    }
+
+    switch (field) {
+      case 'price':
+        if (!isNaN(parseFloat(value))) onUpdatePrice(assetId, value);
+        break;
+      case 'amount':
+        if (!isNaN(parseFloat(value))) onUpdateAmount(assetId, value);
+        break;
+      case 'symbol':
+        if (value.trim()) onUpdateSymbol(assetId, value.trim());
+        break;
+      case 'name':
+        onUpdateName(assetId, value.trim());
+        break;
     }
     setEditingId(null);
+    setEditingField(null);
   };
 
   // Grouping and Sorting Logic
@@ -159,10 +178,47 @@ export function AssetList({
                         className={`group border-b border-border/40 last:border-0 hover:bg-muted/10 transition-colors`}
                       >
                         <td className={`py-4 px-4 ${isHidden ? 'opacity-40 grayscale-[0.5]' : ''}`}>
-                          <div className="font-medium text-foreground">{asset.symbol}</div>
-                          <div className="text-xs text-muted-foreground font-light mt-0.5">
-                            {asset.name}
-                          </div>
+                          {editingId === asset.id && editingField === 'symbol' ? (
+                            <input
+                              type="text"
+                              defaultValue={asset.symbol}
+                              onBlur={(e) => handleSave(asset.id, e.target.value, 'symbol')}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') handleSave(asset.id, (e.target as HTMLInputElement).value, 'symbol');
+                                if (e.key === 'Escape') { setEditingId(null); setEditingField(null); }
+                              }}
+                              autoFocus
+                              className="w-full px-1 py-0.5 bg-background border border-accent outline-none font-medium text-sm"
+                            />
+                          ) : (
+                            <div
+                              className="font-medium text-foreground cursor-pointer hover:text-accent transition-colors"
+                              onClick={() => !isHidden && (setEditingId(asset.id), setEditingField('symbol'))}
+                            >
+                              {asset.symbol}
+                            </div>
+                          )}
+
+                          {editingId === asset.id && editingField === 'name' ? (
+                            <input
+                              type="text"
+                              defaultValue={asset.name}
+                              onBlur={(e) => handleSave(asset.id, e.target.value, 'name')}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') handleSave(asset.id, (e.target as HTMLInputElement).value, 'name');
+                                if (e.key === 'Escape') { setEditingId(null); setEditingField(null); }
+                              }}
+                              autoFocus
+                              className="w-full px-1 py-0.5 bg-background border border-accent outline-none font-light text-xs mt-0.5"
+                            />
+                          ) : (
+                            <div
+                              className="text-xs text-muted-foreground font-light mt-0.5 cursor-pointer hover:text-accent transition-colors"
+                              onClick={() => !isHidden && (setEditingId(asset.id), setEditingField('name'))}
+                            >
+                              {asset.name}
+                            </div>
+                          )}
                         </td>
                         <td className={`py-4 px-2 ${isHidden ? 'opacity-40 grayscale-[0.5]' : ''}`}>
                           <span className="text-[10px] uppercase tracking-wider px-2 py-0.5 border border-border rounded-sm text-muted-foreground">
@@ -170,18 +226,19 @@ export function AssetList({
                           </span>
                         </td>
                         <td className={`py-4 px-2 text-right font-mono text-muted-foreground ${isHidden ? 'opacity-40 grayscale-[0.5]' : ''}`}>
-                          {editingId === asset.id && isBankAsset ? (
+                          {editingId === asset.id && editingField === 'price' && isBankAsset ? (
                             <input
                               type="number"
                               step="0.01"
                               defaultValue={asset.price}
-                              onBlur={(e) => handleSave(asset.id, e.target.value, true)}
+                              onBlur={(e) => handleSave(asset.id, e.target.value, 'price')}
                               onKeyDown={(e) => {
                                 if (e.key === 'Enter') {
-                                  handleSave(asset.id, (e.target as HTMLInputElement).value, true);
+                                  handleSave(asset.id, (e.target as HTMLInputElement).value, 'price');
                                 }
                                 if (e.key === 'Escape') {
                                   setEditingId(null);
+                                  setEditingField(null);
                                 }
                               }}
                               autoFocus
@@ -190,25 +247,26 @@ export function AssetList({
                           ) : (
                             <span
                               className={isBankAsset && !isHidden ? "cursor-pointer hover:text-accent hover:underline decoration-dashed underline-offset-4" : ""}
-                              onClick={() => !isHidden && isBankAsset && setEditingId(asset.id)}
+                              onClick={() => !isHidden && isBankAsset && (setEditingId(asset.id), setEditingField('price'))}
                             >
                               {formatPriceFromOriginal(asset.price, asset.originalCurrency)}
                             </span>
                           )}
                         </td>
                         <td className={`py-4 px-2 text-right font-mono text-foreground ${isHidden ? 'opacity-40 grayscale-[0.5]' : ''}`}>
-                          {editingId === asset.id && !isBankAsset ? (
+                          {editingId === asset.id && editingField === 'amount' && !isBankAsset ? (
                             <input
                               type="number"
                               step="0.00000001"
                               defaultValue={asset.amount}
-                              onBlur={(e) => handleSave(asset.id, e.target.value, false)}
+                              onBlur={(e) => handleSave(asset.id, e.target.value, 'amount')}
                               onKeyDown={(e) => {
                                 if (e.key === 'Enter') {
-                                  handleSave(asset.id, (e.target as HTMLInputElement).value, false);
+                                  handleSave(asset.id, (e.target as HTMLInputElement).value, 'amount');
                                 }
                                 if (e.key === 'Escape') {
                                   setEditingId(null);
+                                  setEditingField(null);
                                 }
                               }}
                               autoFocus
@@ -217,7 +275,7 @@ export function AssetList({
                           ) : (
                             <span
                               className={!isBankAsset && !isHidden ? "cursor-pointer hover:text-accent hover:underline decoration-dashed underline-offset-4" : ""}
-                              onClick={() => !isHidden && !isBankAsset && setEditingId(asset.id)}
+                              onClick={() => !isHidden && !isBankAsset && (setEditingId(asset.id), setEditingField('amount'))}
                               title={!isBankAsset && !isHidden ? "Click to edit" : ""}
                             >
                               {formatAmount(asset.amount)}
