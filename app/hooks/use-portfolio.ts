@@ -4,8 +4,10 @@ import { useEffect, useMemo } from 'react';
 import { useAssets } from './use-assets';
 import { usePortfolioHistory } from './use-portfolio-history';
 import { Asset } from '@/types/portfolio';
+import { useCurrency } from '../context/currency-context';
 
 export function usePortfolio() {
+  const { convertToBase } = useCurrency();
   const {
     assets,
     lastUpdate,
@@ -21,8 +23,8 @@ export function usePortfolio() {
   const totalValue = useMemo(() =>
     assets
       .filter((a: Asset) => !a.isHidden)
-      .reduce((sum: number, asset: Asset) => sum + (asset.amount * asset.price), 0)
-  , [assets]);
+      .reduce((sum: number, asset: Asset) => sum + convertToBase(asset.amount * asset.price, asset.originalCurrency), 0)
+  , [assets, convertToBase]);
 
   const {
     history,

@@ -1,5 +1,6 @@
 'use client';
 
+import React, { useMemo } from 'react';
 import { DashboardCard } from "./dashboard-card";
 import { LineChart, Line, Tooltip, ResponsiveContainer, XAxis } from 'recharts';
 import { HistoryEntry, Asset } from "@/types/portfolio";
@@ -12,14 +13,22 @@ interface PortfolioSummaryProps {
 }
 
 export function PortfolioSummary({ assets, history, lastUpdate }: PortfolioSummaryProps) {
-  const { convertFromOriginal, symbol, convert } = useCurrency();
+  const { convert, symbol } = useCurrency();
 
-  // Calculate total value by converting each asset from its original currency
+  // The totalValue passed from usePortfolio is already normalized to USD.
+  // We just need to convert it to the current display currency.
   const visibleAssets = assets.filter(a => !a.isHidden);
-  const convertedValue = visibleAssets.reduce((sum, asset) => {
-    const assetValue = asset.amount * asset.price;
-    return sum + convertFromOriginal(assetValue, asset.originalCurrency);
-  }, 0);
+  const rawSum = visibleAssets.reduce((sum, asset) => sum + (asset.amount * asset.price), 0);
+
+  // Actually, to be safe and consistent, we'll re-calculate normalized USD here
+  // or expect usePortfolio to provide it. Looking at page.tsx, it's not passed.
+  // Let's use useCurrency.convertToBase for consistency.
+  const { convertToBase } = useCurrency();
+  const convertedValue = useMemo(() => {
+    const usdTotal = visibleAssets.reduce((sum, asset) =>
+      sum + convertToBase(asset.amount * asset.price, asset.originalCurrency), 0);
+    return convert(usdTotal);
+  }, [visibleAssets, convertToBase, convert]);
 
   // For trend calculation, use raw values since history is stored in mixed currencies
   // (In a real app, you'd want to normalize history too, but this is good enough for now)

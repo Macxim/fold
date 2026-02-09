@@ -9,6 +9,7 @@ interface CurrencyContextType {
   setCurrency: (currency: Currency) => void;
   exchangeRate: number; // EUR per 1 USD
   convert: (amountUSD: number) => number;
+  convertToBase: (amount: number, originalCurrency?: Currency) => number;
   convertFromOriginal: (amount: number, originalCurrency?: Currency) => number;
   formatValue: (amountUSD: number, showDecimals?: boolean) => string;
   formatValueFromOriginal: (amount: number, originalCurrency?: Currency) => string;
@@ -103,6 +104,13 @@ export function CurrencyProvider({ children }: { children: ReactNode }) {
     if (currency === 'USD') return amountUSD;
     return amountUSD * exchangeRate;
   }, [currency, exchangeRate]);
+
+  // Convert from original currency to USD (base)
+  const convertToBase = useCallback((amount: number, originalCurrency: Currency = 'USD'): number => {
+    if (originalCurrency === 'USD') return amount;
+    // EUR -> USD: divide by exchangeRate (EUR per USD)
+    return amount / exchangeRate;
+  }, [exchangeRate]);
 
   // Convert from original currency to display currency
   const convertFromOriginal = useCallback((amount: number, originalCurrency: Currency = 'USD'): number => {
@@ -226,6 +234,7 @@ export function CurrencyProvider({ children }: { children: ReactNode }) {
       setCurrency,
       exchangeRate,
       convert,
+      convertToBase,
       convertFromOriginal,
       formatValue,
       formatValueFromOriginal,
