@@ -29,7 +29,7 @@ export default function Home() {
         <header className="mb-12 flex justify-between items-center">
             <div>
               <h2 className="text-muted-foreground text-xs md:text-sm uppercase tracking-widest mb-2 font-medium">Portfolio Overview</h2>
-              <p className="text-2xl md:text-3xl font-light text-foreground tracking-tight">Hello there, LFG!</p>
+              <p className="text-2xl md:text-3xl font-light text-foreground tracking-tight">Hello there, Maxime!</p>
             </div>
             <div className="mb-4">
               <div className="text-[10px] uppercase tracking-widest text-muted-foreground mb-3">

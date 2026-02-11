@@ -2,6 +2,7 @@ import { useState, useCallback, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
 import { Asset, AssetType, AssetForm, OperationResult } from '@/types/portfolio';
 import { usePricing } from './use-pricing';
+import { MOCK_ASSETS, isDemoMode } from '@/lib/mock-data';
 
 export function useAssets() {
   const [assets, setAssets] = useState<Asset[]>([]);
@@ -13,6 +14,14 @@ export function useAssets() {
 
   // Load assets on mount
   const fetchAssets = useCallback(async () => {
+    // Check demo mode synchronously
+    const demoMode = isDemoMode();
+
+    // Return mock data in demo mode
+    if (demoMode) {
+      setAssets(MOCK_ASSETS);
+      return;
+    }
     try {
       const { data, error } = await supabase
         .from('portfolio_assets')
@@ -52,6 +61,8 @@ export function useAssets() {
   }, [updateAllPrices]);
 
   const addAsset = useCallback(async (form: AssetForm): Promise<OperationResult> => {
+    if (isDemoMode()) return { success: false, message: 'Cannot add assets in demo mode' };
+
     const { price, coinId, originalCurrency } = await fetchPrice(
       form.symbol,
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -102,6 +113,7 @@ export function useAssets() {
   const updateAssetAmount = async (id: number, amountStr: string) => {
     const amount = parseFloat(amountStr);
     if (isNaN(amount)) return;
+    if (isDemoMode()) { setAssets(prev => prev.map(a => a.id === id ? { ...a, amount } : a)); return; }
     try {
       await supabase.from('portfolio_assets').update({ amount }).eq('id', id);
       setAssets(prev => prev.map(a => a.id === id ? { ...a, amount } : a));
@@ -111,6 +123,7 @@ export function useAssets() {
   const updateAssetPrice = async (id: number, priceStr: string) => {
     const price = parseFloat(priceStr);
     if (isNaN(price)) return;
+    if (isDemoMode()) { setAssets(prev => prev.map(a => a.id === id ? { ...a, price, lastFetched: Date.now() } : a)); return; }
     try {
       await supabase.from('portfolio_assets').update({ price, last_fetched_at: new Date().toISOString() }).eq('id', id);
       setAssets(prev => prev.map(a => a.id === id ? { ...a, price, lastFetched: Date.now() } : a));
@@ -119,6 +132,7 @@ export function useAssets() {
 
   const updateAssetSymbol = async (id: number, symbol: string) => {
     if (!symbol) return;
+    if (isDemoMode()) { setAssets(prev => prev.map(a => a.id === id ? { ...a, symbol: symbol.toUpperCase() } : a)); return; }
     try {
       await supabase.from('portfolio_assets').update({ symbol: symbol.toUpperCase() }).eq('id', id);
       setAssets(prev => prev.map(a => a.id === id ? { ...a, symbol: symbol.toUpperCase() } : a));
@@ -126,6 +140,7 @@ export function useAssets() {
   };
 
   const updateAssetName = async (id: number, name: string) => {
+    if (isDemoMode()) { setAssets(prev => prev.map(a => a.id === id ? { ...a, name } : a)); return; }
     try {
       await supabase.from('portfolio_assets').update({ name }).eq('id', id);
       setAssets(prev => prev.map(a => a.id === id ? { ...a, name } : a));
@@ -136,6 +151,7 @@ export function useAssets() {
     const asset = assets.find(a => a.id === id);
     if (!asset) return;
     const isHidden = !asset.isHidden;
+    if (isDemoMode()) { setAssets(prev => prev.map(a => a.id === id ? { ...a, isHidden } : a)); return; }
     try {
       await supabase.from('portfolio_assets').update({ is_hidden: isHidden }).eq('id', id);
       setAssets(prev => prev.map(a => a.id === id ? { ...a, isHidden } : a));
@@ -143,6 +159,7 @@ export function useAssets() {
   };
 
   const deleteAsset = async (id: number) => {
+    if (isDemoMode()) { setAssets(prev => prev.filter(a => a.id !== id)); return; }
     try {
       await supabase.from('portfolio_assets').delete().eq('id', id);
       setAssets(prev => prev.filter(a => a.id !== id));

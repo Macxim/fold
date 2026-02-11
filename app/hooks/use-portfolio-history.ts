@@ -1,17 +1,29 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
 import { HistoryEntry } from '@/types/portfolio';
+import { MOCK_HISTORY, isDemoMode } from '@/lib/mock-data';
 
 export function usePortfolioHistory(totalValue: number) {
   const [history, setHistory] = useState<HistoryEntry[]>([]);
 
   // Load local history on mount
   useEffect(() => {
+    // Check demo mode synchronously
+    const demoMode = isDemoMode();
+
+    // Return mock data in demo mode
+    if (demoMode) {
+      setHistory(MOCK_HISTORY);
+      return;
+    }
     const saved = localStorage.getItem('fold-history-v2');
     if (saved) setHistory(JSON.parse(saved));
   }, []);
 
   const fetchRemoteHistory = useCallback(async () => {
+    // Skip Supabase fetch in demo mode
+    if (isDemoMode()) return;
+
     try {
       const { data, error } = await supabase
         .from('portfolio_history')
@@ -48,7 +60,10 @@ export function usePortfolioHistory(totalValue: number) {
 
   // Sync to Supabase when totalValue changes
   useEffect(() => {
-    if (totalValue === 0) return;
+    // Check demo mode synchronously
+    const demoMode = isDemoMode();
+
+    if (totalValue === 0 || demoMode) return;
 
     const today = new Date().toISOString().split('T')[0];
 
@@ -77,6 +92,8 @@ export function usePortfolioHistory(totalValue: number) {
   }, [totalValue]);
 
   const migrateLocalToSupabase = useCallback(async (currentTotalValue: number) => {
+    if (isDemoMode()) return { success: false, message: 'Cannot migrate in demo mode' };
+
     const today = new Date().toISOString().split('T')[0];
     const savedHistory = localStorage.getItem('fold-history-v2');
 
