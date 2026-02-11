@@ -1,36 +1,81 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Fold - Multi-Asset Portfolio Tracker
 
-## Getting Started
+Fold is a modern, responsive multi-asset portfolio tracking application. It allows users to track their investments across Crypto, Stocks, and Bank accounts in one unified dashboard with real-time pricing and historical performance tracking.
 
-First, run the development server:
+## 🚀 Features
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+- **Multi-Asset Support**: Track Crypto (via CoinGecko), Stocks (via Yahoo Finance), and Bank account balances.
+- **Real-Time Pricing**: Automatic price updates for crypto and stocks with batch fetching for efficiency.
+- **Portfolio Analytics**:
+  - Total portfolio value in USD/EUR.
+  - Interactive asset allocation charts (Pie/Bar).
+  - Historical performance graph (Line chart).
+- **History Tracking**: Automatically syncs daily portfolio value to Supabase for long-term tracking.
+- **Dynamic UI**: Responsive design with liquid layouts, glassmorphism effects, and dark mode support.
+- **Multi-Currency Support**: Switch between USD and EUR for your total portfolio view.
+
+## 🛠 Tech Stack
+
+- **Framework**: [Next.js 15+](https://nextjs.org/) (App Router)
+- **Language**: [TypeScript](https://www.typescriptlang.org/)
+- **Database/Backend**: [Supabase](https://supabase.com/) (Auth, Database, RLS)
+- **Styling**: [Tailwind CSS 4](https://tailwindcss.com/)
+- **Charts**: [Recharts](https://recharts.org/)
+- **Testing**: [Vitest](https://vitest.dev/) & [Testing Library](https://testing-library.com/)
+
+## 🏁 Getting Started
+
+### Prerequisites
+
+- Node.js (Latest LTS recommended)
+- A Supabase project
+
+### Installation
+
+1. Clone the repository:
+   ```bash
+   git clone <repository-url>
+   cd fold
+   ```
+
+2. Install dependencies:
+   ```bash
+   npm install
+   ```
+
+3. Configure Environment Variables:
+   Create a `.env.local` file in the root directory:
+   ```env
+   NEXT_PUBLIC_SUPABASE_URL=your-project-url
+   NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY=your-anon-key
+   ```
+
+4. Run the development server:
+   ```bash
+   npm run dev
+   ```
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## 🧪 Testing
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+The project uses Vitest for unit and component testing.
 
-## Learn More
+```bash
+# Run tests once
+npm test
 
-To learn more about Next.js, take a look at the following resources:
+# Run tests in watch mode
+npm run test:watch
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+# Run tests with coverage
+npm run test:coverage
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## 🔐 Database Security
 
-## Deploy on Vercel
+This project uses Row Level Security (RLS) in Supabase. Ensure you have the following tables in your `public` schema:
+- `portfolio_assets`
+- `portfolio_history`
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Proper RLS policies are required to allow the application to securely interact with these tables.
