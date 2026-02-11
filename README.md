@@ -1,3 +1,6 @@
+<img width="1920" height="1271" alt="fold" src="https://github.com/user-attachments/assets/269fee38-d1fc-426a-8e3a-ce0e51638c9e" />
+
+
 # Fold - Multi-Asset Portfolio Tracker
 
 Fold is a modern, responsive multi-asset portfolio tracking application. It allows users to track their investments across Crypto, Stocks, and Bank accounts in one unified dashboard with real-time pricing and historical performance tracking.
