@@ -46,7 +46,7 @@ export function AssetList({
   const [editingField, setEditingField] = useState<'amount' | 'price' | 'symbol' | 'name' | null>(null);
   const [openMenuId, setOpenMenuId] = useState<number | null>(null);
   const [refreshing, setRefreshing] = useState(false);
-  const { formatPriceFromOriginal, formatValueFromOriginal } = useCurrency();
+  const { formatPriceFromOriginal, formatValueFromOriginal, convertToBase, formatValue } = useCurrency();
   const menuRef = useRef<HTMLDivElement>(null);
 
   // Close menu when clicking outside
@@ -152,18 +152,29 @@ export function AssetList({
               );
               const config = typeConfigs[type];
 
+              // Calculate group total in USD equivalent (from original currency)
+              const groupTotalUSD = assetsInGroup.reduce((sum, asset) => {
+                const totalValueInOriginal = asset.amount * asset.price;
+                return sum + convertToBase(totalValueInOriginal, asset.originalCurrency);
+              }, 0);
+
               return (
                 <React.Fragment key={type}>
                   {/* Group Header Row */}
                   <tr className="bg-muted/5 border-y border-border/10">
                     <td colSpan={6} className="py-2 px-4">
-                      <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60 flex items-center gap-2">
-                        <div className={`w-1 h-3 rounded-full ${
-                          type === 'stock' ? 'bg-indigo-500' :
-                          type === 'crypto' ? 'bg-emerald-500' : 'bg-amber-500'
-                        }`} />
-                        {config?.label || type}
-                      </span>
+                      <div className="flex items-center justify-between w-full">
+                        <span className="text-xs font-bold uppercase tracking-widest text-muted-foreground/60 flex items-center gap-2">
+                          <div className={`w-1 h-3 rounded-full ${
+                            type === 'stock' ? 'bg-indigo-500' :
+                            type === 'crypto' ? 'bg-emerald-500' : 'bg-amber-500'
+                          }`} />
+                          {config?.label || type}
+                        </span>
+                        <span className="text-xs font-mono font-medium text-muted-foreground/50">
+                          Total: {formatValue(groupTotalUSD)}
+                        </span>
+                      </div>
                     </td>
                   </tr>
 
