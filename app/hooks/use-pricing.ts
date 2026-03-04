@@ -1,7 +1,7 @@
 import { useCallback, useRef } from 'react';
 import { Asset, Currency } from '@/types/portfolio';
 
-const CACHE_DURATION_MS = 6 * 60 * 60 * 1000;
+const CACHE_DURATION_MS = 5 * 60 * 1000;
 
 
 const isCacheValid = (lastFetched?: number): boolean => {

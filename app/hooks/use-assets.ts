@@ -48,6 +48,24 @@ export function useAssets() {
     if (updated !== assetsRef.current) {
       setAssets(updated);
       setLastUpdate(new Date().toLocaleString('en-US'));
+
+      updated.forEach(async (asset) => {
+        const oldAsset = assetsRef.current.find(a => a.id === asset.id);
+        if (oldAsset && (oldAsset.price !== asset.price || oldAsset.lastFetched !== asset.lastFetched)) {
+          if (asset.type !== 'bank' && asset.id) {
+            try {
+              await supabase.from('portfolio_assets')
+                .update({
+                  price: asset.price,
+                  last_fetched_at: asset.lastFetched ? new Date(asset.lastFetched).toISOString() : new Date().toISOString()
+                })
+                .eq('id', asset.id);
+            } catch (e) {
+              console.error('Failed to sync updated price:', e);
+            }
+          }
+        }
+      });
     }
   }, [updateAllPrices]);
 
