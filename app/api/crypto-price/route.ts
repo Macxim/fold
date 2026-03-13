@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 
+export const dynamic = 'force-dynamic';
+
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
   const symbol = searchParams.get('symbol');
@@ -31,7 +33,7 @@ export async function GET(request: NextRequest) {
     console.log(`[API/Crypto] Fetching prices for ${coinIds}...`);
     const priceRes = await fetch(
       `https://api.coingecko.com/api/v3/simple/price?ids=${coinIds}&vs_currencies=usd`,
-      { next: { revalidate: 60 } } // Cache price for 60 seconds
+      { cache: 'no-store' } // Do not cache price to avoid stale data
     );
 
     if (!priceRes.ok) {
