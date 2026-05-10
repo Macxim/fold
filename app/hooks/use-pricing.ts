@@ -68,59 +68,58 @@ export function usePricing() {
 
     isFetchingRef.current = true;
 
-    // 1. Separate crypto assets for batching
-    const cryptoAssets = assets.filter(a => a.type === 'crypto' && !isCacheValid(a.lastFetched));
-    const nonCryptoAssets = assets.filter(a => a.type !== 'crypto' || isCacheValid(a.lastFetched));
+    try {
+      const cryptoAssets = assets.filter(a => a.type === 'crypto' && !isCacheValid(a.lastFetched));
 
-    let cryptoResults: Record<string, { price: number, coinId: string }> = {};
+      let cryptoResults: Record<string, { price: number, coinId: string }> = {};
 
-    if (cryptoAssets.length > 0) {
-      try {
-        const coinIds = cryptoAssets.map(a => a.coinId).filter(Boolean).join(',');
-        if (coinIds) {
-          const url = new URL('/api/crypto-price', window.location.origin);
-          url.searchParams.set('coinIds', coinIds);
-          const response = await fetch(url.toString());
-          if (response.ok) {
-            cryptoResults = await response.json();
+      if (cryptoAssets.length > 0) {
+        try {
+          const coinIds = cryptoAssets.map(a => a.coinId).filter(Boolean).join(',');
+          if (coinIds) {
+            const url = new URL('/api/crypto-price', window.location.origin);
+            url.searchParams.set('coinIds', coinIds);
+            const response = await fetch(url.toString());
+            if (response.ok) {
+              cryptoResults = await response.json();
+            }
           }
+        } catch (error) {
+          console.error('[usePricing] Batch fetch failed:', error);
         }
-      } catch (error) {
-        console.error('[usePricing] Batch fetch failed:', error);
       }
+
+      const updatedAssets = await Promise.all(
+        assets.map(async (asset) => {
+          if (isCacheValid(asset.lastFetched) || asset.type === 'bank') {
+            return asset;
+          }
+
+          if (asset.type === 'crypto') {
+            const result = asset.coinId ? cryptoResults[asset.coinId] : null;
+            if (result && result.price > 0) {
+              return { ...asset, price: result.price, coinId: result.coinId, lastFetched: Date.now() };
+            }
+            const individual = await fetchPrice(asset.symbol, 'crypto', asset.coinId);
+            if (individual.price > 0) {
+              return { ...asset, price: individual.price, coinId: individual.coinId, lastFetched: Date.now() };
+            }
+            return asset;
+          }
+
+          const { price, coinId } = await fetchPrice(asset.symbol, asset.type, asset.coinId);
+
+          if (price > 0) {
+            return { ...asset, price, coinId, lastFetched: Date.now() };
+          }
+          return asset;
+        })
+      );
+
+      return updatedAssets;
+    } finally {
+      isFetchingRef.current = false;
     }
-
-    // 2. Update all assets
-    const updatedAssets = await Promise.all(
-      assets.map(async (asset) => {
-        if (isCacheValid(asset.lastFetched) || asset.type === 'bank') {
-          return asset;
-        }
-
-        if (asset.type === 'crypto') {
-          const result = asset.coinId ? cryptoResults[asset.coinId] : null;
-          if (result && result.price > 0) {
-            return { ...asset, price: result.price, coinId: result.coinId, lastFetched: Date.now() };
-          }
-          // Fallback to individual fetch if not in batch or missing coinId
-          const individual = await fetchPrice(asset.symbol, 'crypto', asset.coinId);
-          if (individual.price > 0) {
-            return { ...asset, price: individual.price, coinId: individual.coinId, lastFetched: Date.now() };
-          }
-          return asset;
-        }
-
-        const { price, coinId } = await fetchPrice(asset.symbol, asset.type, asset.coinId);
-
-        if (price > 0) {
-          return { ...asset, price, coinId, lastFetched: Date.now() };
-        }
-        return asset;
-      })
-    );
-
-    isFetchingRef.current = false;
-    return updatedAssets;
   }, [fetchPrice]);
 
   return { fetchPrice, updateAllPrices };
