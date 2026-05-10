@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  Daily portfolio-history recorder for Fold.
+
+  Install:
+    cp scripts/im.macx.fold.record-history.plist ~/Library/LaunchAgents/
+    launchctl load ~/Library/LaunchAgents/im.macx.fold.record-history.plist
+
+  Run on demand (without waiting for the schedule):
+    launchctl start im.macx.fold.record-history
+
+  Uninstall:
+    launchctl unload ~/Library/LaunchAgents/im.macx.fold.record-history.plist
+    rm ~/Library/LaunchAgents/im.macx.fold.record-history.plist
+
+  Behaviour: launchd fires once a day at 10:00. If the Mac is asleep at
+  10:00, launchd runs the job at the next wake (single catch-up, not
+  one-per-missed-day). RunAtLoad is false, so loading the plist itself
+  does not kick off a run.
+-->
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>im.macx.fold.record-history</string>
+
+  <key>ProgramArguments</key>
+  <array>
+    <string>/usr/local/bin/node</string>
+    <string>/Users/macxim/code/fold/scripts/record-history.mjs</string>
+  </array>
+
+  <key>WorkingDirectory</key>
+  <string>/Users/macxim/code/fold</string>
+
+  <key>StartCalendarInterval</key>
+  <dict>
+    <key>Hour</key>
+    <integer>10</integer>
+    <key>Minute</key>
+    <integer>0</integer>
+  </dict>
+
+  <key>RunAtLoad</key>
+  <false/>
+
+  <key>StandardOutPath</key>
+  <string>/Users/macxim/code/fold/scripts/record-history.log</string>
+  <key>StandardErrorPath</key>
+  <string>/Users/macxim/code/fold/scripts/record-history.log</string>
+</dict>
+</plist>
