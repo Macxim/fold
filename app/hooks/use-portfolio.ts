@@ -28,11 +28,7 @@ export function usePortfolio() {
       .reduce((sum: number, asset: Asset) => sum + convertToBase(asset.amount * asset.price, asset.originalCurrency), 0)
   , [assets, convertToBase]);
 
-  const {
-    history,
-    fetchRemoteHistory,
-    migrateLocalToSupabase
-  } = usePortfolioHistory(totalValue);
+  const { history, fetchRemoteHistory } = usePortfolioHistory();
 
   // Initial data load
   useEffect(() => {
@@ -60,7 +56,6 @@ export function usePortfolio() {
     updateAssetName,
     toggleHideAsset,
     deleteAsset,
-    migrateLocalToSupabase: () => migrateLocalToSupabase(totalValue),
     refreshPrices
   };
 }
